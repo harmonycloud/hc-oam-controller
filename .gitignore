@@ -4,6 +4,17 @@
 *.dll
 *.so
 *.dylib
+bin/
+
+# editor and IDE paraphernalia
+.idea
+*.swp
+*.swo
+*~
+
+# os
+*/.DS_Store
+.DS_Store
 
 # Test binary, built with `go test -c`
 *.test
