@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: hc-oam-controller
+  name: oam-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hc-oam-controller
+  namespace: oam-system
+  labels:
+    control-plane: hc-oam-controller
+spec:
+  selector:
+    matchLabels:
+      control-plane: hc-oam-controller
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: hc-oam-controller
+    spec:
+      containers:
+        - command:
+            - /hc-oam-controller
+          #image: bilong/hc-oam-controller:v0.1
+          image: registry.cn-hangzhou.aliyuncs.com/harmonycloud/oam-controller:v0.1
+          name: manager
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+      terminationGracePeriodSeconds: 10
