@@ -1,0 +1,20 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: simple-app
+spec:
+  components:
+    - componentName: stateless-component
+      instanceName: demo
+      traits:
+        - name: manual-scaler
+          properties:
+            replicaCount: 2
+        - name: servicebinding
+          properties:
+            servicebindings:
+            - source:
+                objectRef:
+                  apiVersion: v1
+                  kind: Secret
+                  name: my-secret
