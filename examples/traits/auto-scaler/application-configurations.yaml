@@ -1,0 +1,17 @@
+# This will create a Horizontal Pod Autoscaler, but your cluster must have
+# an implementation of an HPA before this will actually cause autoscaling.
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: autoscaler-example
+spec:
+  components:
+    - componentName: hpa-example
+      instanceName: autoscaled-demo
+      traits:
+        - name: auto-scaler
+          properties:
+            maximum : 6
+            minimum : 2
+            cpu : 50
+            memory : 50

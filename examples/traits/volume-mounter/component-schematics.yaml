@@ -1,0 +1,21 @@
+# This is a stand-alone example of using a volume with a component.
+apiVersion: core.oam.dev/v1alpha1
+kind: ComponentSchematic
+metadata:
+  name: server-with-volume
+spec:
+  workloadType: core.oam.dev/v1alpha1.Server
+  containers:
+    - name: server
+      image: nginx:latest
+      resources:
+        volumes:
+          - name: myvol
+            mountPath: /myvol
+            disk:
+              required: "50M"
+              ephemeral: false
+        cpu:
+          required: 100m
+        memory:
+          required: 128Mi

@@ -1,0 +1,14 @@
+# Manual scaling is enabled by trait.
+# This example shows how to apply a manual scaler to a replicatable service.
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: manual-scaler-example
+spec:
+  components:
+    - componentName: nginx-component
+      instanceName: manual-scaler-demo
+      traits:
+        - name: manual-scaler
+          properties:
+            replicaCount: 3

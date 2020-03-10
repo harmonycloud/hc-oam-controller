@@ -1,0 +1,13 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: example-server-with-volume
+spec:
+  components:
+    - componentName: server-with-volume
+      instanceName: example-server-with-volume
+      traits:
+        - name: volume-mounter
+          properties:
+            volumeName: myvol
+            storageClass: default

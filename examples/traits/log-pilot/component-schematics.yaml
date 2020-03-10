@@ -1,0 +1,13 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ComponentSchematic
+metadata:
+  name: tomcat
+spec:
+  workloadType: core.oam.dev/v1alpha1.Server
+  containers:
+    - image: tomcat:8.0
+      name: tomcat
+      ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP

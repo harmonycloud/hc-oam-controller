@@ -1,29 +1,12 @@
+# Overview of Samples
 
-# Examples
-This is an example of how to use the hc-oam-controller.
-```shell script
-[root@10 examples]# kubectl create ns oam-test
-namespace/oam-test created
-[root@10 examples]# kubectl -n oam-test apply -f samples/
-applicationconfiguration.core.oam.dev/simple-app created
-componentschematic.core.oam.dev/stateless-component created
-[root@10 examples]# kubectl -n oam-test get deploy
-NAME   READY   UP-TO-DATE   AVAILABLE   AGE
-demo   2/2     2            2           39s
-[root@10 examples]# kubectl -n oam-test get svc
-NAME   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
-demo   ClusterIP   10.245.54.200   <none>        80/TCP    44s
-[root@10 examples]# kubectl -n oam-test get pods
-NAME                    READY   STATUS    RESTARTS   AGE
-demo-575577d55f-5d254   1/1     Running   0          50s
-demo-575577d55f-8brrz   1/1     Running   0          50s
-[root@10 examples]# kubectl -n oam-test delete -f samples/
-applicationconfiguration.core.oam.dev "simple-app" deleted
-componentschematic.core.oam.dev "stateless-component" deleted
-[root@10 examples]# kubectl -n oam-test get deploy
-No resources found.
-[root@10 examples]# kubectl -n oam-test get svc
-No resources found.
-[root@10 examples]# kubectl -n oam-test get pods
-No resources found.
-```
+This directory contains samples and examples used to show the usages of hc-oam-controller. This document outlines what each sample attempts to show and can be used as a reference for. 
+
+| Example        | Description
+|-|-|
+| [simple example](../README.md##Examples) | This folder contains manifests for a simple example. |
+| [manual-scaler](traits/manual-scaler/README.md)| This is an example of how to use the manual-scaler trait. |
+| [auto-scaler](traits/auto-scaler/README.md)| This is an example of how to use the auto-scaler trait. |
+| [ingress](traits/ingress/README.md)| This is an example of how to use the ingress trait. |
+| [volume-mounter](traits/volume-mounter/README.md)| This is an example of how to use the volume-mounter trait. |
+| [log-pilot](traits/log-pilot/README.md)| This is an example of how to use the log-pilot trait. |

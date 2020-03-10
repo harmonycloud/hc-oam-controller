@@ -1,0 +1,15 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: logpilot-example
+spec:
+  components:
+    - componentName: tomcat
+      instanceName: logpilot-demo
+      traits:
+        - name: log-pilot
+          properties:
+            container: tomcat
+            path: /usr/local/tomcat/logs/
+            name: access
+            tags: k1=v1,k2=v2

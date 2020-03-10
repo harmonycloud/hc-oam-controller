@@ -1,0 +1,14 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: ingress-example
+spec:
+  components:
+    - componentName: nginx-replicated-v1
+      instanceName: ingress-demo
+      traits:
+        - name: ingress
+          properties:
+            hostname: example.com
+            path: /
+            servicePort: 80            # <-- set this to the value in the component

@@ -10,11 +10,3 @@ spec:
         - name: manual-scaler
           properties:
             replicaCount: 2
-        - name: servicebinding
-          properties:
-            servicebindings:
-            - source:
-                objectRef:
-                  apiVersion: v1
-                  kind: Secret
-                  name: my-secret
