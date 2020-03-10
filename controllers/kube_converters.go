@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	v12 "k8s.io/api/batch/v1"
-	v1beta12 "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"strings"
@@ -13,8 +13,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func convertDeployment(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic) (*appsv1.Deployment, []apiv1.ConfigMap) {
-	containers, configMaps := convertContainers(owner, comp.Spec.Containers, parseParameters(compConf.ParameterValues))
+func convertDeployment(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *appsv1.Deployment {
+	containers := convertContainers(owner, compConf.InstanceName, comp.Spec.Containers, parameterMap)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name: compConf.InstanceName,
@@ -41,10 +41,15 @@ func convertDeployment(owner v1.OwnerReference, compConf v1alpha1.ComponentConfi
 			},
 		},
 	}
-	return deployment, configMaps
+	return deployment
 }
 
 func convertService(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic) *apiv1.Service {
+	servicePorts := convertsServicePorts(comp.Spec.Containers)
+	if servicePorts == nil || cap(servicePorts) == 0 {
+		return nil
+	}
+
 	service := &apiv1.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name: compConf.InstanceName,
@@ -53,7 +58,7 @@ func convertService(owner v1.OwnerReference, compConf v1alpha1.ComponentConfigur
 			},
 		},
 		Spec: apiv1.ServiceSpec{
-			Ports: convertsServicePorts(comp.Spec.Containers),
+			Ports: servicePorts,
 			Selector: map[string]string{
 				"app": compConf.InstanceName,
 			},
@@ -62,6 +67,7 @@ func convertService(owner v1.OwnerReference, compConf v1alpha1.ComponentConfigur
 	}
 	return service
 }
+
 func convertsServicePorts(oamContainers []v1alpha1.Container) []apiv1.ServicePort {
 	var servicePorts []apiv1.ServicePort
 
@@ -83,16 +89,16 @@ func convertsServicePorts(oamContainers []v1alpha1.Container) []apiv1.ServicePor
 	return servicePorts
 }
 
-func convertJob(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic) (*v12.Job, []apiv1.ConfigMap) {
-	containers, configMaps := convertContainers(owner, comp.Spec.Containers, parseParameters(compConf.ParameterValues))
-	job := &v12.Job{
+func convertJob(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *batchv1.Job {
+	containers := convertContainers(owner, compConf.InstanceName, comp.Spec.Containers, parameterMap)
+	job := &batchv1.Job{
 		ObjectMeta: v1.ObjectMeta{
 			Name: compConf.InstanceName,
 			OwnerReferences: []v1.OwnerReference{
 				owner,
 			},
 		},
-		Spec: v12.JobSpec{
+		Spec: batchv1.JobSpec{
 			Template: apiv1.PodTemplateSpec{
 				Spec: apiv1.PodSpec{
 					Containers: containers,
@@ -100,22 +106,22 @@ func convertJob(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguratio
 			},
 		},
 	}
-	return job, configMaps
+	return job
 }
 
-func convertCornJob(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic) (*v1beta12.CronJob, []apiv1.ConfigMap) {
-	containers, configMaps := convertContainers(owner, comp.Spec.Containers, parseParameters(compConf.ParameterValues))
-	cronJob := &v1beta12.CronJob{
+func convertCornJob(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *batchv1beta1.CronJob {
+	containers := convertContainers(owner, compConf.InstanceName, comp.Spec.Containers, parameterMap)
+	cronJob := &batchv1beta1.CronJob{
 		ObjectMeta: v1.ObjectMeta{
 			Name: compConf.InstanceName,
 			OwnerReferences: []v1.OwnerReference{
 				owner,
 			},
 		},
-		Spec: v1beta12.CronJobSpec{
+		Spec: batchv1beta1.CronJobSpec{
 			Schedule: "",
-			JobTemplate: v1beta12.JobTemplateSpec{
-				Spec: v12.JobSpec{
+			JobTemplate: batchv1beta1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
 					Template: apiv1.PodTemplateSpec{
 						Spec: apiv1.PodSpec{
 							Containers: containers,
@@ -125,12 +131,11 @@ func convertCornJob(owner v1.OwnerReference, compConf v1alpha1.ComponentConfigur
 			},
 		},
 	}
-	return cronJob, configMaps
+	return cronJob
 }
 
-func convertContainers(owner v1.OwnerReference, oamContainers []v1alpha1.Container, parameterMap map[string]string) ([]apiv1.Container, []apiv1.ConfigMap) {
+func convertContainers(owner v1.OwnerReference, instanceName string, oamContainers []v1alpha1.Container, parameterMap map[string]string) []apiv1.Container {
 	var containerlist []apiv1.Container
-	var configMapList []apiv1.ConfigMap
 	for _, c := range oamContainers {
 		container := &apiv1.Container{
 			Name:           c.Name,
@@ -140,17 +145,13 @@ func convertContainers(owner v1.OwnerReference, oamContainers []v1alpha1.Contain
 			Ports:          convertContainerPorts(c),
 			Env:            convertEnvs(c.Env, parameterMap),
 			Resources:      convertResources(&c.Resources),
-			VolumeMounts:   convertVolumeMounts(c.Resources.Volumes, c.Config),
+			VolumeMounts:   convertVolumeMounts(instanceName, c.Name, c.Resources.Volumes, c.Config),
 			LivenessProbe:  convertProbe(c.LivenessProbe),
 			ReadinessProbe: convertProbe(c.ReadinessProbe),
 		}
 		containerlist = append(containerlist, *container)
-		cm := convertConfigMap(owner, c.Config, parameterMap, owner.Name+"-"+c.Name+"-config")
-		if cm != nil {
-			configMapList = append(configMapList, *cm)
-		}
 	}
-	return containerlist, configMapList
+	return containerlist
 }
 
 func convertContainerPorts(oamContainer v1alpha1.Container) []apiv1.ContainerPort {
@@ -166,29 +167,14 @@ func convertContainerPorts(oamContainer v1alpha1.Container) []apiv1.ContainerPor
 	return containerPorts
 }
 
-func createOrUpdateConfigMaps(s *Handler, namespace string, configMaps []apiv1.ConfigMap) error {
-	configMapClient := s.K8sclient.CoreV1().ConfigMaps(namespace)
-	for _, configmap := range configMaps {
-		tmpCm, _ := configMapClient.Get(configmap.Name, v1.GetOptions{})
-		if tmpCm.OwnerReferences != nil && isOwnerEqual(configmap.OwnerReferences[0], tmpCm.OwnerReferences[0]) {
-			cmResult, err := configMapClient.Update(&configmap)
-			if err != nil {
-				handlerLog.Info("ConfigMap update failed.", "Namespace", namespace, "ConfigMap", configmap.Name, "Error", err)
-				return err
-			} else {
-				handlerLog.Info("ConfigMap updated.", "Namespace", namespace, "ConfigMap", cmResult.Name)
-			}
-		} else {
-			cmResult, err := configMapClient.Create(&configmap)
-			if err != nil {
-				handlerLog.Info("ConfigMap create failed.", "Namespace", namespace, "ConfigMap", configmap.Name, "Error", err)
-				return err
-			} else {
-				handlerLog.Info("ConfigMap created.", "Namespace", namespace, "ConfigMap", cmResult.Name)
-			}
+func convertConfigMaps(owner v1.OwnerReference, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) []apiv1.ConfigMap {
+	var configMaps []apiv1.ConfigMap
+	for _, container := range comp.Spec.Containers {
+		if configMap := convertConfigMap(owner, container.Config, parameterMap, compConf.InstanceName+"-"+container.Name); configMap != nil {
+			configMaps = append(configMaps, *configMap)
 		}
 	}
-	return nil
+	return configMaps
 }
 
 func convertConfigMap(owner v1.OwnerReference, oamConfigFile []v1alpha1.ConfigFile, parameterMap map[string]string, configMapName string) *apiv1.ConfigMap {
@@ -219,7 +205,7 @@ func getConfigFileName(path string) string {
 	return ss[len(ss)-1]
 }
 
-func convertVolumeMounts(oamVolumes []v1alpha1.Volume, oamConfigFile []v1alpha1.ConfigFile) []apiv1.VolumeMount {
+func convertVolumeMounts(instanceName string, containerName string, oamVolumes []v1alpha1.Volume, oamConfigFile []v1alpha1.ConfigFile) []apiv1.VolumeMount {
 	var volumeMounts []apiv1.VolumeMount
 	for _, v := range oamVolumes {
 		volumeMount := apiv1.VolumeMount{
@@ -234,8 +220,7 @@ func convertVolumeMounts(oamVolumes []v1alpha1.Volume, oamConfigFile []v1alpha1.
 	}
 	for _, f := range oamConfigFile {
 		volumeMount := apiv1.VolumeMount{
-
-			Name:      "config",
+			Name:      instanceName + "-" + containerName + "-config",
 			MountPath: f.Path,
 			SubPath:   getConfigFileName(f.Path),
 		}
@@ -244,11 +229,40 @@ func convertVolumeMounts(oamVolumes []v1alpha1.Volume, oamConfigFile []v1alpha1.
 	return volumeMounts
 }
 
-func getReadOnly(accessMode v1alpha1.AccessMode) bool {
-	if accessMode == "RW" {
-		return false
+func convertVolumesFromConfig(configMaps []apiv1.ConfigMap) []apiv1.Volume {
+	var volumes []apiv1.Volume
+	for _, c := range configMaps {
+		volume := apiv1.Volume{
+			Name: c.Name + "-config",
+			VolumeSource: apiv1.VolumeSource{
+				ConfigMap: &apiv1.ConfigMapVolumeSource{
+					LocalObjectReference: apiv1.LocalObjectReference{Name: c.Name},
+					Items:                convertConfigVolumeSourceItems(c),
+				},
+			},
+		}
+		volumes = append(volumes, volume)
 	}
-	return true
+	return volumes
+}
+
+func convertConfigVolumeSourceItems(configMap apiv1.ConfigMap) []apiv1.KeyToPath {
+	var keyToPaths []apiv1.KeyToPath
+	for k := range configMap.Data {
+		ktp := apiv1.KeyToPath{
+			Key:  k,
+			Path: k,
+		}
+		keyToPaths = append(keyToPaths, ktp)
+	}
+	return keyToPaths
+}
+
+func getReadOnly(accessMode v1alpha1.AccessMode) bool {
+	if accessMode == "RO" {
+		return true
+	}
+	return false
 }
 
 func convertProbe(oamProbe *v1alpha1.HealthProbe) *apiv1.Probe {
