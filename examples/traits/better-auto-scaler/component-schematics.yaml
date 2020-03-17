@@ -1,0 +1,18 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ComponentSchematic
+metadata:
+  name: hc-hpa-example
+spec:
+  workloadType: core.oam.dev/v1alpha1.Server
+  containers:
+    - name: server
+      image: registry.cn-hangzhou.aliyuncs.com/belong/hpa-example:latest
+      ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+      resources:
+        cpu:
+          required: 100m
+        memory:
+          required: 256Mi

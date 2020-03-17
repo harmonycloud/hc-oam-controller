@@ -14,6 +14,7 @@ None. *The volume mounter trait has no external dependencies.*
 - `core.oam.dev/v1alpha1.SingletonTask`
 - `core.oam.dev/v1alpha1.Worker`
 - `core.oam.dev/v1alpha1.SingletonWorker`
+- `harmonycloud.cn/v1alpha1.MysqlCluster`
 
 ## Properties
 

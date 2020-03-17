@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	hcversioned "hc-oam-controller/client/clientset/versioned"
+
 	"github.com/oam-dev/oam-go-sdk/pkg/client/clientset/versioned"
 	"k8s.io/client-go/kubernetes"
 )
@@ -9,4 +11,5 @@ type Handler struct {
 	Name      string
 	Oamclient *versioned.Clientset
 	K8sclient *kubernetes.Clientset
+	Hcclient  *hcversioned.Clientset
 }

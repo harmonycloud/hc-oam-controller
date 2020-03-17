@@ -1,0 +1,19 @@
+# This will create a Horizontal Pod Autoscaler, but your cluster must have
+# an implementation of an HPA before this will actually cause autoscaling.
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: better-autoscaler-example
+spec:
+  components:
+    - componentName: hc-hpa-example
+      instanceName: better-autoscaled-demo
+      traits:
+        - name: better-auto-scaler
+          properties:
+            maximum : 6
+            minimum : 2
+            cpu-up : 50
+            cpu-down : 20
+            memory-up : 50
+            memory-down: 20

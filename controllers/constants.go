@@ -7,4 +7,5 @@ const (
 	WorkloadTypeSingletonWorker = "core.oam.dev/v1alpha1.SingletonWorker"
 	WorkloadTypeTask            = "core.oam.dev/v1alpha1.Task"
 	WorkloadTypeSingletonTask   = "core.oam.dev/v1alpha1.SingletonTask"
+	WorkloadTypeMysqlCluster    = "harmonycloud.cn/v1alpha1.MysqlCluster"
 )

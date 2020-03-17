@@ -2,6 +2,9 @@ package main
 
 import (
 	"flag"
+	hcv1alpha1 "hc-oam-controller/api/harmonycloud.cn/v1alpha1"
+	hcv1beta1 "hc-oam-controller/api/harmonycloud.cn/v1beta1"
+	hcversioned "hc-oam-controller/client/clientset/versioned"
 	"hc-oam-controller/controllers"
 	"log"
 
@@ -22,6 +25,8 @@ var (
 func init() {
 	ctrl.SetLogger(zap.Logger(true))
 	_ = v1alpha1.AddToScheme(scheme)
+	_ = hcv1alpha1.AddToScheme(scheme)
+	_ = hcv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -39,10 +44,16 @@ func main() {
 	}
 	oamclient, err := versioned.NewForConfig(ctrl.GetConfigOrDie())
 	if err != nil {
-		log.Fatal("create client err: ", err)
+		log.Fatal("create oam client err: ", err)
 	}
+
+	hcClient, err := hcversioned.NewForConfig(ctrl.GetConfigOrDie())
+	if err != nil {
+		log.Fatal("create hc client err: ", err)
+	}
+
 	// register workloadtpye & trait hooks and handlers
-	oam.RegisterHandlers(oam.STypeApplicationConfiguration, &controllers.Handler{Name: "application-configuration-handler", Oamclient: oamclient, K8sclient: clientset})
+	oam.RegisterHandlers(oam.STypeApplicationConfiguration, &controllers.Handler{Name: "application-configuration-handler", Oamclient: oamclient, K8sclient: clientset, Hcclient: hcClient})
 
 	// reconcilers must register manualy
 	// cloudnativeapp/oam-runtime/pkg/oam as a pkg should not do os.Exit(), instead of

@@ -4,11 +4,14 @@ import (
 	"errors"
 	"github.com/oam-dev/oam-go-sdk/apis/core.oam.dev/v1alpha1"
 	"github.com/oam-dev/oam-go-sdk/pkg/oam"
+	hcv1alpha1 "hc-oam-controller/api/harmonycloud.cn/v1alpha1"
+	hcv1beta1 "hc-oam-controller/api/harmonycloud.cn/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/autoscaling/v2beta2"
 	batchv1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+
 	//"k8s.io/api/networking/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -110,6 +113,16 @@ func (s *Handler) Handle(ctx *oam.ActionContext, obj runtime.Object, eType oam.E
 				}
 
 			}
+
+			//better-auto-scaler trait
+			if comp.Spec.WorkloadType == WorkloadTypeServer || comp.Spec.WorkloadType == WorkloadTypeWorker {
+				apiVersion = "apps/v1"
+				hcHpa := convertHcHpa(owner, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
+				if err := createOrUpdateHcHpa(s, ac.Namespace, ac.Name, compConf.ComponentName, hcHpa); err != nil {
+					handlerLog.Info("Create or update hcHpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
+				}
+			}
+
 		case WorkloadTypeTask, WorkloadTypeSingletonTask:
 			job := convertJob(owner, compConf, *comp, parameterMap)
 			var apiVersion string
@@ -139,10 +152,43 @@ func (s *Handler) Handle(ctx *oam.ActionContext, obj runtime.Object, eType oam.E
 
 			//auto-scaler trait
 			if comp.Spec.WorkloadType == WorkloadTypeTask {
+				apiVersion = "batch/v1"
 				hpa := convertHpa(owner, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHpa(s, ac.Namespace, ac.Name, compConf.ComponentName, hpa); err != nil {
 					handlerLog.Info("Create or update hpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
+			}
+
+			//better-auto-scaler trait
+			if comp.Spec.WorkloadType == WorkloadTypeTask {
+				apiVersion = "batch/v1"
+				hcHpa := convertHcHpa(owner, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
+				if err := createOrUpdateHcHpa(s, ac.Namespace, ac.Name, compConf.ComponentName, hcHpa); err != nil {
+					handlerLog.Info("Create or update hcHpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
+				}
+			}
+
+		case WorkloadTypeMysqlCluster:
+			mysqlCluster, mysqlCm, mysqlPvc, err := convertMysqlCluster(owner, compConf, *comp, parameterMap)
+			if err != nil {
+				handlerLog.Info("Convert configuration for MysqlCluster failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
+			}
+
+			if err := createOrUpdateConfigMap(s, ac.Namespace, ac.Name, compConf.ComponentName, *mysqlCm); err != nil {
+				handlerLog.Info("Create or update configMap for MysqlCluster failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
+			}
+
+			//volume-mounter trait
+			if err := createOrUpdatePvc(s, ac.Namespace, ac.Name, compConf.ComponentName, *mysqlPvc); err != nil {
+				handlerLog.Info("Create or update pvc for MysqlCluster failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
+			}
+
+			//manuel-scaler trait
+			mysqlReplicas := *getManuelScale(compConf.Traits)
+			mysqlCluster.Spec.Replicas = &mysqlReplicas
+
+			if err := createOrUpdateMysqlCluster(s, ac.Namespace, ac.Name, compConf.ComponentName, mysqlCluster); err != nil {
+				handlerLog.Info("Create or update MysqlCluster error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 			}
 
 		default:
@@ -161,40 +207,54 @@ func isOwnerEqual(ownerA v1.OwnerReference, ownerB v1.OwnerReference) bool {
 }
 
 func createOrUpdateConfigMaps(s *Handler, namespace string, applicationConfiguration string, component string, configMaps []apiv1.ConfigMap) error {
-	configMapClient := s.K8sclient.CoreV1().ConfigMaps(namespace)
 	for _, configmap := range configMaps {
-		tmpCm, _ := configMapClient.Get(configmap.Name, v1.GetOptions{})
-		if tmpCm.OwnerReferences != nil && isOwnerEqual(configmap.OwnerReferences[0], tmpCm.OwnerReferences[0]) {
-			cmResult, err := configMapClient.Update(&configmap)
-			if err != nil {
-				handlerLog.Info("ConfigMap update failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", configmap.Name, "Error", err)
-				return err
-			} else {
-				handlerLog.Info("ConfigMap updated.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", cmResult.Name)
-			}
+		if err := createOrUpdateConfigMap(s, namespace, applicationConfiguration, component, configmap); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createOrUpdateConfigMap(s *Handler, namespace string, applicationConfiguration string, component string, configMap apiv1.ConfigMap) error {
+	configMapClient := s.K8sclient.CoreV1().ConfigMaps(namespace)
+	tmpCm, _ := configMapClient.Get(configMap.Name, v1.GetOptions{})
+	if tmpCm.OwnerReferences != nil && isOwnerEqual(configMap.OwnerReferences[0], tmpCm.OwnerReferences[0]) {
+		cmResult, err := configMapClient.Update(&configMap)
+		if err != nil {
+			handlerLog.Info("ConfigMap update failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", configMap.Name, "Error", err)
+			return err
 		} else {
-			cmResult, err := configMapClient.Create(&configmap)
-			if err != nil {
-				handlerLog.Info("ConfigMap create failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", configmap.Name, "Error", err)
-				return err
-			} else {
-				handlerLog.Info("ConfigMap created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", cmResult.Name)
-			}
+			handlerLog.Info("ConfigMap updated.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", cmResult.Name)
+		}
+	} else {
+		cmResult, err := configMapClient.Create(&configMap)
+		if err != nil {
+			handlerLog.Info("ConfigMap create failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", configMap.Name, "Error", err)
+			return err
+		} else {
+			handlerLog.Info("ConfigMap created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "ConfigMap", cmResult.Name)
 		}
 	}
 	return nil
 }
 
 func createOrUpdatePvcs(s *Handler, namespace string, applicationConfiguration string, component string, pvcs []apiv1.PersistentVolumeClaim) error {
-	pvcsClient := s.K8sclient.CoreV1().PersistentVolumeClaims(namespace)
 	for _, pvc := range pvcs {
-		pvcResult, err := pvcsClient.Create(&pvc)
-		if err != nil {
-			handlerLog.Info("Pvc create failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "Pvc", pvc.Name, "Error", err)
+		if err := createOrUpdatePvc(s, namespace, applicationConfiguration, component, pvc); err != nil {
 			return err
-		} else {
-			handlerLog.Info("Pvc created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "Pvc", pvcResult.Name)
 		}
+	}
+	return nil
+}
+
+func createOrUpdatePvc(s *Handler, namespace string, applicationConfiguration string, component string, pvc apiv1.PersistentVolumeClaim) error {
+	pvcsClient := s.K8sclient.CoreV1().PersistentVolumeClaims(namespace)
+	pvcResult, err := pvcsClient.Create(&pvc)
+	if err != nil {
+		handlerLog.Info("Pvc create failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "Pvc", pvc.Name, "Error", err)
+		return err
+	} else {
+		handlerLog.Info("Pvc created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "Pvc", pvcResult.Name)
 	}
 	return nil
 }
@@ -247,6 +307,32 @@ func createOrUpdateJob(s *Handler, namespace string, applicationConfiguration st
 			return err
 		} else {
 			handlerLog.Info("Job created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "Job", jobResult.Name)
+		}
+	}
+	return nil
+}
+
+func createOrUpdateMysqlCluster(s *Handler, namespace string, applicationConfiguration string, component string, mysqlCluster *hcv1alpha1.MysqlCluster) error {
+	if mysqlCluster == nil {
+		return nil
+	}
+	mysqlClustersClient := s.Hcclient.HarmonycloudV1alpha1().MysqlClusters(namespace)
+	tmpMysqlCluster, _ := mysqlClustersClient.Get(nil, mysqlCluster.Name, v1.GetOptions{})
+	if tmpMysqlCluster.OwnerReferences != nil && isOwnerEqual(mysqlCluster.OwnerReferences[0], tmpMysqlCluster.OwnerReferences[0]) {
+		mysqlClusterResult, err := mysqlClustersClient.Update(nil, mysqlCluster, v1.UpdateOptions{})
+		if err != nil {
+			handlerLog.Info("MysqlCluster update failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "MysqlCluster", mysqlCluster.Name, "Error", err)
+			return nil
+		} else {
+			handlerLog.Info("MysqlCluster updated.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "Deployment", mysqlClusterResult.Name)
+		}
+	} else {
+		mysqlClusterResult, err := mysqlClustersClient.Create(nil, mysqlCluster, v1.CreateOptions{})
+		if err != nil {
+			handlerLog.Info("MysqlCluster create failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "MysqlCluster", mysqlCluster.Name, "Error", err)
+			return nil
+		} else {
+			handlerLog.Info("MysqlCluster created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "MysqlCluster", mysqlClusterResult.Name)
 		}
 	}
 	return nil
@@ -325,6 +411,32 @@ func createOrUpdateHpa(s *Handler, namespace string, applicationConfiguration st
 			return err
 		} else {
 			handlerLog.Info("Hpa created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "Hpa", hpaResult.Name)
+		}
+	}
+	return nil
+}
+
+func createOrUpdateHcHpa(s *Handler, namespace string, applicationConfiguration string, component string, hcHpa *hcv1beta1.HorizontalPodAutoscaler) error {
+	if hcHpa == nil {
+		return nil
+	}
+	hcHpaClient := s.Hcclient.HarmonycloudV1beta1().HorizontalPodAutoscalers(namespace)
+	tmpHcHpa, _ := hcHpaClient.Get(nil, hcHpa.Name, v1.GetOptions{})
+	if tmpHcHpa.OwnerReferences != nil && isOwnerEqual(hcHpa.OwnerReferences[0], tmpHcHpa.OwnerReferences[0]) {
+		hcHpaResult, err := hcHpaClient.Update(nil, hcHpa, v1.UpdateOptions{})
+		if err != nil {
+			handlerLog.Info("HcHpa update failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "HcHpa", hcHpa.Name, "Error", err)
+			return err
+		} else {
+			handlerLog.Info("HcHpa updated.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "HcHpa", hcHpaResult.Name)
+		}
+	} else {
+		hcHpaResult, err := hcHpaClient.Create(nil, hcHpa, v1.CreateOptions{})
+		if err != nil {
+			handlerLog.Info("HcHpa create failed.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "HcHpa", hcHpa.Name, "Error", err)
+			return err
+		} else {
+			handlerLog.Info("HcHpa created.", "Namespace", namespace, "ApplicationConfiguration", applicationConfiguration, "Component", component, "HcHpa", hcHpaResult.Name)
 		}
 	}
 	return nil

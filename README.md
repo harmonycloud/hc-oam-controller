@@ -24,6 +24,12 @@ Hc-oam-controller supports all of the Open Application Model [Core Workload Type
 |Worker|core.oam.dev/v1alpha1.Worker|No|Yes|Yes
 |Singleton Worker|core.oam.dev/v1alpha1.SingletonWorker|No|No|Yes
 
+### Extended Workloads
+
+Currently, hc-oam-controller supports one extended workload:
+
+- [MysqlCluster](examples/workload_types/mysql-cluster/README.md)
+
 ## Traits
 
 A [trait](https://github.com/oam-dev/spec/blob/master/5.traits.md) represents a piece of add-on functionality that attaches to a component instance. Traits augment components with additional operational features such as traffic routing rules (including load balancing policy, network ingress routing, circuit breaking, rate limiting), auto-scaling policies, upgrade strategies, and more. As such, traits represent features of the system that are operational concerns, as opposed to developer concerns.               
@@ -35,6 +41,7 @@ Currently, hc-oam-controller supports the following traits:
 - [Ingress](examples/traits/ingress/README.md)
 - [Volume Mounter](examples/traits/volume-mounter/README.md)
 - [Log-pilot](examples/traits/log-pilot/README.md)
+- [Better Autoscaler](examples/traits/better-auto-scaler/README.md)
 
 ## Get started
 

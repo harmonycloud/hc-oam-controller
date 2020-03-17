@@ -11,6 +11,7 @@ None. *The manual scaler trait has no external dependencies.*
 - `core.oam.dev/v1alpha1.Server`
 - `core.oam.dev/v1alpha1.Task`
 - `core.oam.dev/v1alpha1.Worker`
+- `harmonycloud.cn/v1alpha1.MysqlCluster`
 
 ## Properties
 

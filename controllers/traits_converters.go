@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"github.com/oam-dev/oam-go-sdk/apis/core.oam.dev/v1alpha1"
+	hcv1beta1 "hc-oam-controller/api/harmonycloud.cn/v1beta1"
 	"k8s.io/api/autoscaling/v2beta2"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -95,6 +96,128 @@ func convertHpa(owner v1.OwnerReference, kind string, apiVersion string, instanc
 		}
 	}
 	return hpa
+}
+
+func convertHcHpa(owner v1.OwnerReference, kind string, apiVersion string, instanceName string, traits []v1alpha1.TraitBinding) *hcv1beta1.HorizontalPodAutoscaler {
+	var hcHpa *hcv1beta1.HorizontalPodAutoscaler
+	for _, tr := range traits {
+		if tr.Name != "better-auto-scaler" {
+			continue
+		}
+		values, err := parsePropertiesOfTrait(tr)
+		if err != nil {
+			continue
+		}
+
+		min, ok := values["minimum"]
+		var minimum int32
+		if !ok {
+			minimum = 1
+		} else {
+			minimum = int32(min.(float64))
+		}
+
+		max, ok := values["maximum"]
+		var maximum int32
+		if !ok {
+			maximum = 10
+		} else {
+			maximum = int32(max.(float64))
+		}
+
+		cpuUp, ok := values["cpu-up"]
+		var cpuUpMetric hcv1beta1.MetricSpec
+		if ok {
+			utilization := int32(cpuUp.(float64))
+			cpuUpMetric = hcv1beta1.MetricSpec{
+				Type: hcv1beta1.ResourceMetricSourceType,
+				Resource: &hcv1beta1.ResourceMetricSource{
+					Name: "cpu",
+					Target: hcv1beta1.MetricTarget{
+						Type:               hcv1beta1.UtilizationMetricType,
+						AverageUtilization: &utilization,
+						ScaleType:          hcv1beta1.ScaleUpMetricsTargetType,
+					},
+				},
+			}
+		}
+
+		cpuDown, ok := values["cpu-down"]
+		var cpuDownMetric hcv1beta1.MetricSpec
+		if ok {
+			utilization := int32(cpuDown.(float64))
+			cpuDownMetric = hcv1beta1.MetricSpec{
+				Type: hcv1beta1.ResourceMetricSourceType,
+				Resource: &hcv1beta1.ResourceMetricSource{
+					Name: "cpu",
+					Target: hcv1beta1.MetricTarget{
+						Type:               hcv1beta1.UtilizationMetricType,
+						AverageUtilization: &utilization,
+						ScaleType:          hcv1beta1.ScaleDownMetricsTargetType,
+					},
+				},
+			}
+		}
+
+		memoryUp, ok := values["memory-up"]
+		var memoryUpMetric hcv1beta1.MetricSpec
+		if ok {
+			utilization := int32(memoryUp.(float64))
+			memoryUpMetric = hcv1beta1.MetricSpec{
+				Type: hcv1beta1.ResourceMetricSourceType,
+				Resource: &hcv1beta1.ResourceMetricSource{
+					Name: "memory",
+					Target: hcv1beta1.MetricTarget{
+						Type:               hcv1beta1.UtilizationMetricType,
+						AverageUtilization: &utilization,
+						ScaleType:          hcv1beta1.ScaleUpMetricsTargetType,
+					},
+				},
+			}
+		}
+
+		memoryDown, ok := values["memory-down"]
+		var memoryDownMetric hcv1beta1.MetricSpec
+		if ok {
+			utilization := int32(memoryDown.(float64))
+			memoryDownMetric = hcv1beta1.MetricSpec{
+				Type: hcv1beta1.ResourceMetricSourceType,
+				Resource: &hcv1beta1.ResourceMetricSource{
+					Name: "memory",
+					Target: hcv1beta1.MetricTarget{
+						Type:               hcv1beta1.UtilizationMetricType,
+						AverageUtilization: &utilization,
+						ScaleType:          hcv1beta1.ScaleDownMetricsTargetType,
+					},
+				},
+			}
+		}
+
+		hcHpa = &hcv1beta1.HorizontalPodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: instanceName,
+				OwnerReferences: []v1.OwnerReference{
+					owner,
+				},
+			},
+			Spec: hcv1beta1.HorizontalPodAutoscalerSpec{
+				ScaleTargetRef: hcv1beta1.CrossVersionObjectReference{
+					Kind:       kind,
+					Name:       instanceName,
+					APIVersion: apiVersion,
+				},
+				MinReplicas: &minimum,
+				MaxReplicas: maximum,
+				Metrics: []hcv1beta1.MetricSpec{
+					cpuUpMetric,
+					cpuDownMetric,
+					memoryUpMetric,
+					memoryDownMetric,
+				},
+			},
+		}
+	}
+	return hcHpa
 }
 
 func convertIngress(owner v1.OwnerReference, instanceName string, traits []v1alpha1.TraitBinding) *v1beta1.Ingress {
@@ -214,6 +337,9 @@ func convertPvcsFromVolumeMounters(owner v1.OwnerReference, comp v1alpha1.Compon
 		storageClass := values["storageClass"].(string)
 
 		var oamVolume v1alpha1.Volume
+		if comp.Spec.WorkloadType == WorkloadTypeMysqlCluster {
+			continue
+		}
 		for _, c := range comp.Spec.Containers {
 			for _, v := range c.Resources.Volumes {
 				if v.Name == volumeName {

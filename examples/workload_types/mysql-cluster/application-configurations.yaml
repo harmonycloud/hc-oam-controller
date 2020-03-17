@@ -1,0 +1,16 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: mysql-app
+spec:
+  components:
+    - componentName: mysql-cluster-demo
+      instanceName: mysql-cluster-example
+      traits:
+        - name: volume-mounter
+          properties:
+            volumeName: mysql-cluster
+            storageClass: local-storage
+        - name: manual-scaler
+          properties:
+            replicaCount: 2
