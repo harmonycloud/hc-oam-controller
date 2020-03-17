@@ -45,6 +45,37 @@ Currently, hc-oam-controller supports the following traits:
 
 ## Get started
 
+Hc-oam-controller can be installed through [helm v3](https://github.com/helm/helm.git) or [kubetl](https://github.com/kubernetes/kubectl.git).
+
+### Install Using `Helm 3`
+
+```shell script
+$ kubectl create namespace oam-system
+namespace/oam-system created
+$ helm -n oam-system install --generate-name charts/hc-oam-controller 
+NAME: hc-oam-controller-1584418055
+LAST DEPLOYED: Tue Mar 17 12:07:37 2020
+NAMESPACE: oam-system
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+hc-oam-controller is an Open Application Model (OAM) implementation based on oam-dev/oam-go-sdk for Kubernetes in HarmonyCloud.
+$
+$ helm -n oam-system list
+NAME                            NAMESPACE       REVISION        UPDATED                                 STATUS          CHART                   APP VERSION
+hc-oam-controller-1584418055    oam-system      1               2020-03-17 12:07:37.437598 +0800 CST    deployed        hc-oam-controller-0.1.0 v0.1       
+$ kubectl -n oam-system get deploy,pod
+NAME                                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/hc-oam-controller-1584418055   1/1     1            1           26s
+
+NAME                                               READY   STATUS    RESTARTS   AGE
+pod/hc-oam-controller-1584418055-79bcdb6fc-k7trm   1/1     Running   0          26s
+$ 
+```
+
+### Install using `kubectl `
+
 ```shell script
 $ kubectl apply -f config/oam/crds/
 customresourcedefinition.apiextensions.k8s.io/applicationconfigurations.core.oam.dev created

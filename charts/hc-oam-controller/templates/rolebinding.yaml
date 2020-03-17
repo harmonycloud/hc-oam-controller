@@ -1,0 +1,40 @@
+{{- if .Values.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "hc-oam-controller.serviceAccountName" . }}
+  labels:
+  {{ include "hc-oam-controller.labels" . | nindent 4 }}
+{{- end -}}
+
+{{ if .Values.enableRBAC }}
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "hc-oam-controller.fullname" . }}
+  labels:
+  {{ include "hc-oam-controller.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["", "apps", "batch", "extensions", "autoscaling", "core.oam.dev", "apiextensions.k8s.io", "harmonycloud.cn", "mysql.middleware.harmonycloud.cn"]
+    resources: ["*"]
+    verbs: ["*"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "hc-oam-controller.fullname" . }}
+  labels:
+  {{ include "hc-oam-controller.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "hc-oam-controller.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "hc-oam-controller.fullname" . }}
+  apiGroup: ""
+{{ end }}
