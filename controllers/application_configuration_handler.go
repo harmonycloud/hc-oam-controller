@@ -36,6 +36,11 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 
 	owner := *v1.NewControllerRef(ac, v1alpha1.SchemeGroupVersion.WithKind("ApplicationConfiguration"))
 	for _, compConf := range ac.Spec.Components {
+		labels := map[string]string{
+			"application": ac.Name,
+			"component":   compConf.ComponentName,
+			"instance":    compConf.InstanceName,
+		}
 		comp, err := s.Oamclient.CoreV1alpha1().ComponentSchematics(ac.Namespace).Get(compConf.ComponentName, v1.GetOptions{})
 		if err != nil {
 			return err
@@ -44,20 +49,20 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 		parameterMap := parseParameters(compConf.ParameterValues, ac.Spec.Variables)
 
 		//create or update configmaps before create workloads
-		configMaps := convertConfigMaps(owner, compConf, *comp, parameterMap)
+		configMaps := convertConfigMaps(owner, labels, compConf, *comp, parameterMap)
 		if err := createOrUpdateConfigMaps(s, ac, compConf.ComponentName, configMaps); err != nil {
 			handlerLog.Info("Create or update configMaps error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 		}
 
 		//create pvcs before create workloads
-		pvcs := convertPvcsFromVolumeMounters(owner, *comp, compConf.Traits)
+		pvcs := convertPvcsFromVolumeMounters(owner, labels, *comp, compConf.Traits)
 		if err := createOrUpdatePvcs(s, ac, compConf.ComponentName, pvcs); err != nil {
 			handlerLog.Info("Create pvcs error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 		}
 
 		switch comp.Spec.WorkloadType {
 		case WorkloadTypeServer, WorkloadTypeSingletonServer, WorkloadTypeWorker, WorkloadTypeSingletonWorker:
-			deployment := convertDeployment(owner, compConf, *comp, parameterMap)
+			deployment := convertDeployment(owner, labels, compConf, *comp, parameterMap)
 			var apiVersion string
 
 			//manuel-scaler trait
@@ -84,13 +89,13 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			}
 
 			if comp.Spec.WorkloadType == WorkloadTypeServer || comp.Spec.WorkloadType == WorkloadTypeSingletonServer {
-				service := convertService(owner, compConf, *comp)
+				service := convertService(owner, labels, compConf, *comp)
 				if err := createOrUpdateService(s, ac, compConf.ComponentName, service); err != nil {
 					handlerLog.Info("Create or update service error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
 
 				//ingress trait
-				ingress := convertIngress(owner, compConf.InstanceName, compConf.Traits)
+				ingress := convertIngress(owner, labels, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateIngress(s, ac, compConf.ComponentName, ingress); err != nil {
 					handlerLog.Info("Create or update ingress error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
@@ -101,7 +106,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			if comp.Spec.WorkloadType == WorkloadTypeServer || comp.Spec.WorkloadType == WorkloadTypeWorker {
 				//apiVersion = "extensions/v1beta1"
 				apiVersion = "apps/v1"
-				hpa := convertHpa(owner, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
+				hpa := convertHpa(owner, labels, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHpa(s, ac, compConf.ComponentName, hpa); err != nil {
 					handlerLog.Info("Create or update hpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
@@ -111,14 +116,14 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			//better-auto-scaler trait
 			if comp.Spec.WorkloadType == WorkloadTypeServer || comp.Spec.WorkloadType == WorkloadTypeWorker {
 				apiVersion = "apps/v1"
-				hcHpa := convertHcHpa(owner, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
+				hcHpa := convertHcHpa(owner, labels, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHcHpa(s, ac, compConf.ComponentName, hcHpa); err != nil {
 					handlerLog.Info("Create or update hcHpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
 			}
 
 		case WorkloadTypeTask, WorkloadTypeSingletonTask:
-			job := convertJob(owner, compConf, *comp, parameterMap)
+			job := convertJob(owner, labels, compConf, *comp, parameterMap)
 			var apiVersion string
 
 			//manuel-scaler trait
@@ -147,7 +152,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			//auto-scaler trait
 			if comp.Spec.WorkloadType == WorkloadTypeTask {
 				apiVersion = "batch/v1"
-				hpa := convertHpa(owner, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
+				hpa := convertHpa(owner, labels, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHpa(s, ac, compConf.ComponentName, hpa); err != nil {
 					handlerLog.Info("Create or update hpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
@@ -156,7 +161,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			//better-auto-scaler trait
 			if comp.Spec.WorkloadType == WorkloadTypeTask {
 				apiVersion = "batch/v1"
-				hcHpa := convertHcHpa(owner, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
+				hcHpa := convertHcHpa(owner, labels, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHcHpa(s, ac, compConf.ComponentName, hcHpa); err != nil {
 					handlerLog.Info("Create or update hcHpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
