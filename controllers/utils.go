@@ -39,3 +39,22 @@ func MiddleString(str, starting, ending string) string {
 	}
 	return str[s : s+e]
 }
+
+func addModuleStatus(statusList *[]v1alpha1.ModuleStatus, name string, kind string, group string, status string) {
+	moduleStatus := v1alpha1.ModuleStatus{
+		NamespacedName: name,
+		Kind:           kind,
+		GroupVersion:   group,
+		Status:         status,
+	}
+	flag := false
+	for _, s := range *statusList {
+		if s.Kind == kind && s.NamespacedName == name && s.GroupVersion == group {
+			flag = true
+			break
+		}
+	}
+	if !flag {
+		*statusList = append(*statusList, moduleStatus)
+	}
+}
