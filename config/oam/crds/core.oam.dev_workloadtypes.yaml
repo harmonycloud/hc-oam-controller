@@ -60,9 +60,6 @@ spec:
             version:
               type: string
           required:
-          - group
-          - names
-          - version
           type: object
         status:
           description: WorkloadTypeStatus defines the observed state of WorkloadType

@@ -3,6 +3,7 @@ kind: Trait
 metadata:
   name: log-pilot
   annotations:
+    group: core.oam.dev/v1alpha1
     version: v1.0.0
     description: "The log-pilot trait is used to collect logs for components."
 spec:

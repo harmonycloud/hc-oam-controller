@@ -3,6 +3,7 @@ kind: Trait
 metadata:
   name: better-auto-scaler
   annotations:
+    group: core.oam.dev/v1alpha1
     version: v1.0.0
     description: "Allow workload to auto scale by CPU/Memory, this is implemented by the Kubernetes Horizontal Pod Autoscaler."
 spec:

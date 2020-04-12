@@ -3,6 +3,7 @@ kind: Trait
 metadata:
   name: manual-scaler
   annotations:
+    group: core.oam.dev/v1alpha1
     version: v1.0.0
     description: "Allow operators to manually scale a workloads that allow multiple replicas."
 spec:

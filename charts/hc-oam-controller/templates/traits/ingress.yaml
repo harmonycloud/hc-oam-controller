@@ -3,6 +3,7 @@ kind: Trait
 metadata:
   name: ingress
   annotations:
+    group: core.oam.dev/v1alpha1
     version: v1.0.0
     description: "Ingress Trait used for components with service workloads and provides load balancing, SSL termination and name-based virtual hosting."
 spec:

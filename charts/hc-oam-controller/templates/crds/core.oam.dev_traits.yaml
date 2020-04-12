@@ -62,9 +62,6 @@ spec:
             version:
               type: string
           required:
-          - names
-          - type
-          - version
           type: object
         status:
           description: TraitStatus defines the observed state of Trait

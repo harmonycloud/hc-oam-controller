@@ -3,14 +3,10 @@ kind: WorkloadType
 metadata:
   name: mysql-cluster
   annotations:
-    version: v1alpha1
-    group: harmonycloud.cn
+    group: harmonycloud.cn/v1alpha1
+    version: v1.0.0
     description: "MysqlCluster workload is used to auto create and manage mysql cluster in kubernetes."
 spec:
-  names:
-    kind: MysqlCluster
-  group: harmonycloud.cn
-  version: v1alpha1
   workloadSettings: |
     {
        "$schema":"http://json-schema.org/draft-07/schema#",
