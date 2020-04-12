@@ -14,7 +14,7 @@ spec:
     listKind: TraitList
     plural: traits
     singular: trait
-  scope: Namespaced
+  scope: Cluster
   validation:
     openAPIV3Schema:
       description: Trait is the Schema for the traits API
