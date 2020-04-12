@@ -1,0 +1,45 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: Trait
+metadata:
+  name: better-auto-scaler
+  annotations:
+    version: v1.0.0
+    description: "Allow workload to auto scale by CPU/Memory, this is implemented by the Kubernetes Horizontal Pod Autoscaler."
+spec:
+  appliesTo:
+    - core.oam.dev/v1alpha1.Server
+    - core.oam.dev/v1alpha1.Task
+    - core.oam.dev/v1alpha1.Worker
+  properties: |
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "minimum": {
+          "type": "integer",
+          "description": "Minumum number of replicas to start.",
+          "default": 1
+        },
+        "maximum": {
+          "type": "integer",
+          "description": "Maximum number of replicas to start.",
+          "default": 10
+        },
+        "memory-up": {
+          "type": "integer",
+          "description": "The memory consumption threshold (as percent) that will cause a scale-up event."
+        },
+        "memory-down": {
+          "type": "integer",
+          "description": "The memory consumption threshold (as percent) that will cause a scale-down event."
+        },
+        "cpu-up": {
+          "type": "integer",
+          "description": "The CPU consumption threshold (as percent) that will cause a scale-up event"
+        },
+        "cpu-down": {
+          "type": "integer",
+          "description": "The CPU consumption threshold (as percent) that will cause a scale-down event"
+        }
+      }
+    }

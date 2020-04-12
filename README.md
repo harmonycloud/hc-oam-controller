@@ -88,6 +88,16 @@ namespace/oam-system created
 deployment.apps/hc-oam-controller created
 clusterrole.rbac.authorization.k8s.io/hc-oam-controller-role created
 clusterrolebinding.rbac.authorization.k8s.io/hc-oam-controller-rolebinding created
+$ kubectl create -f config/hc-oam-controller/traits 
+trait.core.oam.dev/auto-scaler created
+trait.core.oam.dev/better-auto-scaler created
+trait.core.oam.dev/ingress created
+trait.core.oam.dev/log-pilot created
+trait.core.oam.dev/manual-scaler created
+trait.core.oam.dev/volume-mounter created
+$ kubectl create -f config/hc-oam-controller/workloads 
+workloadtype.core.oam.dev/mysql-cluster created
+
 $ kubectl -n oam-system get pod
 NAME                                 READY   STATUS    RESTARTS   AGE
 hc-oam-controller-666457bc6f-hsthf   1/1     Running   0          3m

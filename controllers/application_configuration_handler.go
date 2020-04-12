@@ -225,7 +225,7 @@ func createOrUpdateConfigMap(s *ApplicationConfigurationHandler, applicationConf
 			handlerLog.Info("ConfigMap patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "ConfigMap", configMap.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
-		} else {
+		} else if cmResult.ResourceVersion != tmpCm.ResourceVersion {
 			handlerLog.Info("ConfigMap patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "ConfigMap", cmResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, apiv1.ResourceConfigMaps, cmResult.Name))
 		}
@@ -294,7 +294,7 @@ func createOrUpdateDeployment(s *ApplicationConfigurationHandler, applicationCon
 			handlerLog.Info("Deployment patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Deployment", deployment.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return nil
-		} else {
+		} else if deployResult.ResourceVersion != tmpDeploy.ResourceVersion {
 			handlerLog.Info("Deployment patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Deployment", deployResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "deployments", deployResult.Name))
 		}
@@ -339,7 +339,7 @@ func createOrUpdateJob(s *ApplicationConfigurationHandler, applicationConfigurat
 			handlerLog.Info("Job patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Job", job.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
-		} else {
+		} else if jobResult.ResourceVersion != tmpJob.ResourceVersion {
 			handlerLog.Info("Job patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Job", jobResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "jobs", jobResult.Name))
 		}
@@ -372,7 +372,7 @@ func createOrUpdateMysqlCluster(s *ApplicationConfigurationHandler, applicationC
 			handlerLog.Info("MysqlCluster patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "MysqlCluster", mysqlCluster.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
-		} else {
+		} else if mysqlClusterResult.ResourceVersion != tmpMysqlCluster.ResourceVersion {
 			handlerLog.Info("MysqlCluster patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Deployment", mysqlClusterResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "mysqlclusters", mysqlClusterResult.Name))
 		}
@@ -405,7 +405,7 @@ func createOrUpdateService(s *ApplicationConfigurationHandler, applicationConfig
 			handlerLog.Info("Service patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Service", service.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
-		} else {
+		} else if svcResult.ResourceVersion != tmpsvc.ResourceVersion {
 			handlerLog.Info("Service patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Service", svcResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, apiv1.ResourceServices, svcResult.Name))
 		}
@@ -439,7 +439,7 @@ func createOrUpdateIngress(s *ApplicationConfigurationHandler, applicationConfig
 			handlerLog.Info("Ingress patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Ingress", ingress.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
-		} else {
+		} else if ingResult.ResourceVersion != tmpIng.ResourceVersion {
 			handlerLog.Info("Ingress patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Ingress", ingResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "ingresses", ingResult.Name))
 		}
@@ -473,7 +473,7 @@ func createOrUpdateHpa(s *ApplicationConfigurationHandler, applicationConfigurat
 			handlerLog.Info("Hpa patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Hpa", hpa.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
-		} else {
+		} else if hpaResult.ResourceVersion != tmpHpa.ResourceVersion {
 			handlerLog.Info("Hpa patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Hpa", hpaResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "hpas", hpaResult.Name))
 		}
@@ -506,7 +506,7 @@ func createOrUpdateHcHpa(s *ApplicationConfigurationHandler, applicationConfigur
 			handlerLog.Info("HcHpa patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "HcHpa", hcHpa.Name, "Error", err)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
-		} else {
+		} else if hcHpaResult.ResourceVersion != tmpHcHpa.ResourceVersion {
 			handlerLog.Info("HcHpa patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "HcHpa", hcHpaResult.Name)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "hchpas", hcHpaResult.Name))
 		}

@@ -14,7 +14,10 @@ spec:
     listKind: WorkloadTypeList
     plural: workloadtypes
     singular: workloadtype
-  scope: Namespaced
+    shortNames:
+    - workload
+    - workloads
+  scope: Cluster
   validation:
     openAPIV3Schema:
       description: WorkloadType is the Schema for the workloadtypes API

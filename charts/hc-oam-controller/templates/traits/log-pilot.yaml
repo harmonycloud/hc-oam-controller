@@ -1,0 +1,48 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: Trait
+metadata:
+  name: log-pilot
+  annotations:
+    version: v1.0.0
+    description: "The log-pilot trait is used to collect logs for components."
+spec:
+  appliesTo:
+    - core.oam.dev/v1alpha1.Server
+    - core.oam.dev/v1alpha1.SingletonServer
+    - core.oam.dev/v1alpha1.Worker
+    - core.oam.dev/v1alpha1.SingletonWorker
+    - core.oam.dev/v1alpha1.Task
+    - core.oam.dev/v1alpha1.SingletonTask
+  properties: |
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "required": [
+        "container",
+        "path",
+        "name"
+      ],
+      "properties": {
+        "container": {
+          "type": "string",
+          "description": "The name of the container. This matches the container name declared in the ComponentSchematic."
+        },
+        "path": {
+          "type": "string",
+          "description": "path is the log file path, should end with /"
+        },
+        "name": {
+                  "type": "string",
+                  "description": "name is an identify, can be any string you want. The valid characters in name are 0-9a-zA-Z_-"
+        },
+        "tags": {
+                  "type": "string",
+                  "description": "tags will be appended to log. (e.g. k1=v1,k2=v2)"
+        },
+        "pilotLogPrefix": {
+                  "type": "string",
+                  "description": "pilotLogPrefix is an attribute named PILOT_LOG_PREFIX declared in log-pilot configuration.",
+                  "default": "aliyun"
+        }
+      }
+    }

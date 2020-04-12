@@ -1,0 +1,35 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: Trait
+metadata:
+  name: ingress
+  annotations:
+    version: v1.0.0
+    description: "Ingress Trait used for components with service workloads and provides load balancing, SSL termination and name-based virtual hosting."
+spec:
+  appliesTo:
+    - core.oam.dev/v1alpha1.Server
+    - core.oam.dev/v1alpha1.SingletonServer
+  properties: |
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "required": [
+        "hostname",
+        "service_port"
+      ],
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "description": "Host name for the ingress."
+        },
+        "servicePort": {
+          "type": "integer",
+          "description": "Port number on the service."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to expose.",
+          "default": "/"
+        }
+      }
+    }

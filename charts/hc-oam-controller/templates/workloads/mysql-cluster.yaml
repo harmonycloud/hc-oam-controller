@@ -1,0 +1,33 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: WorkloadType
+metadata:
+  name: mysql-cluster
+  annotations:
+    version: v1alpha1
+    group: harmonycloud.cn
+    description: "MysqlCluster workload is used to auto create and manage mysql cluster in kubernetes."
+spec:
+  names:
+    kind: MysqlCluster
+  group: harmonycloud.cn
+  version: v1alpha1
+  workloadSettings: |
+    {
+       "$schema":"http://json-schema.org/draft-07/schema#",
+       "type":"object",
+       "description":"",
+       "required":[
+          "spec",
+          "config"
+       ],
+       "properties":{
+          "spec":{
+             "type":"object",
+             "description":"Spec of the custom resource MysqlCluster"
+          },
+          "config":{
+             "type":"string",
+             "description":"The config information of MysqlCluster"
+          }
+       }
+    }
