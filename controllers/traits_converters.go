@@ -14,8 +14,8 @@ import (
 	"reflect"
 )
 
-func convertHpa(owner v1.OwnerReference, labels map[string]string, kind string, apiVersion string, instanceName string, traits []v1alpha1.TraitBinding) *v2beta2.HorizontalPodAutoscaler {
-	labels["role"] = "trait"
+func convertHpa(owner v1.OwnerReference, annotations map[string]string, kind string, apiVersion string, instanceName string, traits []v1alpha1.TraitBinding) *v2beta2.HorizontalPodAutoscaler {
+	annotations["role"] = "trait"
 	var hpa *v2beta2.HorizontalPodAutoscaler
 	for _, tr := range traits {
 		if tr.Name != "auto-scaler" {
@@ -80,7 +80,7 @@ func convertHpa(owner v1.OwnerReference, labels map[string]string, kind string, 
 				OwnerReferences: []v1.OwnerReference{
 					owner,
 				},
-				Labels: labels,
+				Annotations: annotations,
 			},
 			Spec: v2beta2.HorizontalPodAutoscalerSpec{
 				ScaleTargetRef: v2beta2.CrossVersionObjectReference{
@@ -100,8 +100,8 @@ func convertHpa(owner v1.OwnerReference, labels map[string]string, kind string, 
 	return hpa
 }
 
-func convertHcHpa(owner v1.OwnerReference, labels map[string]string, kind string, apiVersion string, instanceName string, traits []v1alpha1.TraitBinding) *hcv1beta1.HorizontalPodAutoscaler {
-	labels["role"] = "trait"
+func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind string, apiVersion string, instanceName string, traits []v1alpha1.TraitBinding) *hcv1beta1.HorizontalPodAutoscaler {
+	annotations["role"] = "trait"
 	var hcHpa *hcv1beta1.HorizontalPodAutoscaler
 	for _, tr := range traits {
 		if tr.Name != "better-auto-scaler" {
@@ -202,7 +202,7 @@ func convertHcHpa(owner v1.OwnerReference, labels map[string]string, kind string
 				OwnerReferences: []v1.OwnerReference{
 					owner,
 				},
-				Labels: labels,
+				Annotations: annotations,
 			},
 			Spec: hcv1beta1.HorizontalPodAutoscalerSpec{
 				ScaleTargetRef: hcv1beta1.CrossVersionObjectReference{
@@ -224,8 +224,8 @@ func convertHcHpa(owner v1.OwnerReference, labels map[string]string, kind string
 	return hcHpa
 }
 
-func convertIngress(owner v1.OwnerReference, labels map[string]string, instanceName string, traits []v1alpha1.TraitBinding) *v1beta1.Ingress {
-	labels["role"] = "trait"
+func convertIngress(owner v1.OwnerReference, annotations map[string]string, instanceName string, traits []v1alpha1.TraitBinding) *v1beta1.Ingress {
+	annotations["role"] = "trait"
 	var ingressRules []v1beta1.IngressRule
 	var ingress *v1beta1.Ingress
 	for _, tr := range traits {
@@ -270,7 +270,7 @@ func convertIngress(owner v1.OwnerReference, labels map[string]string, instanceN
 				OwnerReferences: []v1.OwnerReference{
 					owner,
 				},
-				Labels: labels,
+				Annotations: annotations,
 			},
 			Spec: v1beta1.IngressSpec{
 				Rules: ingressRules,
@@ -329,8 +329,8 @@ func getVolumesFromVolumeMounters(traits []v1alpha1.TraitBinding) []apiv1.Volume
 	return volumes
 }
 
-func convertPvcsFromVolumeMounters(owner v1.OwnerReference, labels map[string]string, comp v1alpha1.ComponentSchematic, traits []v1alpha1.TraitBinding) []apiv1.PersistentVolumeClaim {
-	labels["role"] = "trait"
+func convertPvcsFromVolumeMounters(owner v1.OwnerReference, annotations map[string]string, comp v1alpha1.ComponentSchematic, traits []v1alpha1.TraitBinding) []apiv1.PersistentVolumeClaim {
+	annotations["role"] = "trait"
 	var pvcs []apiv1.PersistentVolumeClaim
 	for _, tr := range traits {
 		if tr.Name != "volume-mounter" {
@@ -369,7 +369,7 @@ func convertPvcsFromVolumeMounters(owner v1.OwnerReference, labels map[string]st
 				OwnerReferences: []v1.OwnerReference{
 					owner,
 				},
-				Labels: labels,
+				Annotations: annotations,
 			},
 			Spec: apiv1.PersistentVolumeClaimSpec{
 				AccessModes: []apiv1.PersistentVolumeAccessMode{

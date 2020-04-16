@@ -34,16 +34,15 @@ func (s *DeploymentHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, e
 			if err != nil {
 				return err
 			}
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "Deployment" && m.NamespacedName == deployment.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("Ready: %v/%v, Up-to-date: %v, Available: %v",
-						deployment.Status.ReadyReplicas, deployment.Status.ReadyReplicas, deployment.Status.UpdatedReplicas, deployment.Status.AvailableReplicas)
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(deployment.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("Ready: %v/%v, Up-to-date: %v, Available: %v.",
+				deployment.Status.ReadyReplicas, deployment.Status.ReadyReplicas, deployment.Status.UpdatedReplicas, deployment.Status.AvailableReplicas)
+			addResourceStatus(&ac.Status.Resources, deployment.Name, deployment.APIVersion, deployment.Kind, deployment.Annotations["instance"], deployment.Annotations["role"], status)
+
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(deployment.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -76,16 +75,14 @@ func (s *ServiceHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, eTyp
 					ports += ","
 				}
 			}
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "Service" && m.NamespacedName == service.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("Type: %s, Cluster-IP: %s, Port(s): %s",
-						service.Spec.Type, service.Spec.ClusterIP, ports)
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(service.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("Type: %s, Cluster-IP: %s, Port(s): %s.",
+				service.Spec.Type, service.Spec.ClusterIP, ports)
+			addResourceStatus(&ac.Status.Resources, service.Name, service.APIVersion, service.Kind, service.Annotations["instance"], service.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(service.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -107,15 +104,13 @@ func (s *ConfigMapHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, eT
 			if err != nil {
 				return err
 			}
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "ConfigMap" && m.NamespacedName == configmap.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("Data: %v", len(configmap.Data))
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(configmap.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("Data: %v.", len(configmap.Data))
+			addResourceStatus(&ac.Status.Resources, configmap.Name, configmap.APIVersion, configmap.Kind, configmap.Annotations["instance"], configmap.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(configmap.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -138,29 +133,33 @@ func (s *PvcHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, eType oa
 			if err != nil {
 				return err
 			}
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "PersistentVolumeClaim" && m.NamespacedName == pvc.Name {
-					var status string
-					if pvc.Status.Phase != "Bound" {
-						status = fmt.Sprintf("Status: %s", pvc.Status.Phase)
-					} else {
-						capacity := pvc.Status.Capacity["storage"]
-						status = fmt.Sprintf("Status: %s, Volume: %s, Capacity: %s, AccessModes: %s",
-							pvc.Status.Phase,
-							pvc.Spec.VolumeName,
-							capacity.String(),
-							pvc.Status.AccessModes)
-					}
-					if pvc.Spec.StorageClassName != nil {
-						status += fmt.Sprintf(", StorageClass: %s", *pvc.Spec.StorageClassName)
-					}
-					ac.Status.Modules[k].Status = status
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(pvc.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			var status string
+			if pvc.Status.Phase != "Bound" {
+				status = fmt.Sprintf("Status: %s.", pvc.Status.Phase)
+			} else {
+				capacity := pvc.Status.Capacity["storage"]
+				status = fmt.Sprintf("Volume: %s, Capacity: %s, AccessModes: %s, Status: %s.",
+					pvc.Spec.VolumeName,
+					capacity.String(),
+					pvc.Status.AccessModes,
+					pvc.Status.Phase)
+			}
+			if pvc.Spec.StorageClassName != nil {
+				capacity := pvc.Status.Capacity["storage"]
+				status = fmt.Sprintf("Volume: %s, Capacity: %s, AccessModes: %s, StorageClass: %s, Status: %s.",
+					pvc.Spec.VolumeName,
+					capacity.String(),
+					pvc.Status.AccessModes,
+					*pvc.Spec.StorageClassName,
+					pvc.Status.Phase,
+				)
+			}
+			addResourceStatus(&ac.Status.Resources, pvc.Name, pvc.APIVersion, pvc.Kind, pvc.Annotations["instance"], pvc.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(pvc.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -182,16 +181,14 @@ func (s *JobHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, eType oa
 			if err != nil {
 				return err
 			}
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "Job" && m.NamespacedName == job.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("Active: %v, Succeeded: %v, Failed: %v",
-						job.Status.Active, job.Status.Succeeded, job.Status.Failed)
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(job.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("Active: %v, Succeeded: %v, Failed: %v.",
+				job.Status.Active, job.Status.Succeeded, job.Status.Failed)
+			addResourceStatus(&ac.Status.Resources, job.Name, job.APIVersion, job.Kind, job.Annotations["instance"], job.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(job.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -213,16 +210,14 @@ func (s *MysqlClusterHandler) Handle(ctx *oam.ActionContext, obj runtime.Object,
 			if err != nil {
 				return err
 			}
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "Deployment" && m.NamespacedName == mysqlCluster.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("Phase: %s, Replicas: %v, CurrentRevision: %s, UpdateRevision: %s, CurrentSwitchedNum: %v, FailedCount: %v, Reason: %s",
-						mysqlCluster.Status.Phase, mysqlCluster.Status.Replicas, mysqlCluster.Status.CurrentRevision, mysqlCluster.Status.UpdateRevision, mysqlCluster.Status.CurrentSwitchedNum, mysqlCluster.Status.FailedCount, mysqlCluster.Status.Reason)
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(mysqlCluster.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("Phase: %s, Replicas: %v, CurrentRevision: %s, UpdateRevision: %s, CurrentSwitchedNum: %v, FailedCount: %v, Reason: %s.",
+				mysqlCluster.Status.Phase, mysqlCluster.Status.Replicas, mysqlCluster.Status.CurrentRevision, mysqlCluster.Status.UpdateRevision, mysqlCluster.Status.CurrentSwitchedNum, mysqlCluster.Status.FailedCount, mysqlCluster.Status.Reason)
+			addResourceStatus(&ac.Status.Resources, mysqlCluster.Name, mysqlCluster.APIVersion, mysqlCluster.Kind, mysqlCluster.Annotations["instance"], mysqlCluster.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(mysqlCluster.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -252,15 +247,13 @@ func (s *IngressHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, eTyp
 				}
 
 			}
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "Ingress" && m.NamespacedName == ingress.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("Hosts: %s", hosts)
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(ingress.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("Hosts: %s ", hosts)
+			addResourceStatus(&ac.Status.Resources, ingress.Name, ingress.APIVersion, ingress.Kind, ingress.Annotations["instance"], ingress.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(ingress.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -282,16 +275,13 @@ func (s *HpaHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, eType oa
 			if err != nil {
 				return err
 			}
-
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "HorizontalPodAutoscaler" && m.GroupVersion == "autoscaling/v2beta2" && m.NamespacedName == hpa.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("CurrentReplicas: %v, DesiredReplicas: %v", hpa.Status.CurrentReplicas, hpa.Status.DesiredReplicas)
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(hpa.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("CurrentReplicas: %v, DesiredReplicas: %v.", hpa.Status.CurrentReplicas, hpa.Status.DesiredReplicas)
+			addResourceStatus(&ac.Status.Resources, hpa.Name, hpa.APIVersion, hpa.Kind, hpa.Annotations["instance"], hpa.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(hpa.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}
@@ -313,16 +303,13 @@ func (s *HcHpaHandler) Handle(ctx *oam.ActionContext, obj runtime.Object, eType 
 			if err != nil {
 				return err
 			}
-
-			for k, m := range ac.Status.Modules {
-				if m.Kind == "HorizontalPodAutoscaler" && m.GroupVersion == "harmonycloud.cn/v1beta1" && m.NamespacedName == hpa.Name {
-					ac.Status.Modules[k].Status = fmt.Sprintf("CurrentReplicas: %v, DesiredReplicas: %v", hpa.Status.CurrentReplicas, hpa.Status.DesiredReplicas)
-					if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(hpa.Namespace).UpdateStatus(ac); err != nil {
-						statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
-						return err
-					}
-					return nil
-				}
+			status := fmt.Sprintf("CurrentReplicas: %v, DesiredReplicas: %v.", hpa.Status.CurrentReplicas, hpa.Status.DesiredReplicas)
+			addResourceStatus(&ac.Status.Resources, hpa.Name, hpa.APIVersion, hpa.Kind, hpa.Annotations["instance"], hpa.Annotations["role"], status)
+			if _, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(hpa.Namespace).UpdateStatus(ac); err != nil {
+				statusLog.Info("Update status failed", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+				return err
+			} else {
+				return nil
 			}
 		}
 	}

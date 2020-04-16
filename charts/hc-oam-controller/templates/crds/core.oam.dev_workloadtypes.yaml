@@ -14,6 +14,9 @@ spec:
     listKind: WorkloadTypeList
     plural: workloadtypes
     singular: workloadtype
+    shortNames:
+    - workload
+    - workloads
   scope: Cluster
   validation:
     openAPIV3Schema:

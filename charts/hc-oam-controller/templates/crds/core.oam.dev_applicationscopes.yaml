@@ -14,6 +14,9 @@ spec:
     listKind: ApplicationScopeList
     plural: applicationscopes
     singular: applicationscope
+    shortNames:
+    - appscope
+    - appscopes
   scope: Namespaced
   validation:
     openAPIV3Schema:

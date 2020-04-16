@@ -14,6 +14,11 @@ spec:
     listKind: ComponentSchematicList
     plural: componentschematics
     singular: componentschematic
+    shortNames:
+    - component
+    - components
+    - comp
+    - comps
   scope: Namespaced
   validation:
     openAPIV3Schema:

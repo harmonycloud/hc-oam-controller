@@ -15,6 +15,7 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
+	"strings"
 
 	//"k8s.io/api/networking/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +37,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 
 	owner := *v1.NewControllerRef(ac, v1alpha1.SchemeGroupVersion.WithKind("ApplicationConfiguration"))
 	for _, compConf := range ac.Spec.Components {
-		labels := map[string]string{
+		annotations := map[string]string{
 			"application": ac.Name,
 			"component":   compConf.ComponentName,
 			"instance":    compConf.InstanceName,
@@ -49,20 +50,20 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 		parameterMap := parseParameters(compConf.ParameterValues, ac.Spec.Variables)
 
 		//create or update configmaps before create workloads
-		configMaps := convertConfigMaps(owner, labels, compConf, *comp, parameterMap)
+		configMaps := convertConfigMaps(owner, annotations, compConf, *comp, parameterMap)
 		if err := createOrUpdateConfigMaps(s, ac, compConf.ComponentName, configMaps); err != nil {
 			handlerLog.Info("Create or update configMaps error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 		}
 
 		//create pvcs before create workloads
-		pvcs := convertPvcsFromVolumeMounters(owner, labels, *comp, compConf.Traits)
+		pvcs := convertPvcsFromVolumeMounters(owner, annotations, *comp, compConf.Traits)
 		if err := createOrUpdatePvcs(s, ac, compConf.ComponentName, pvcs); err != nil {
 			handlerLog.Info("Create pvcs error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 		}
 
 		switch comp.Spec.WorkloadType {
 		case WorkloadTypeServer, WorkloadTypeSingletonServer, WorkloadTypeWorker, WorkloadTypeSingletonWorker:
-			deployment := convertDeployment(owner, labels, compConf, *comp, parameterMap)
+			deployment := convertDeployment(owner, annotations, compConf, *comp, parameterMap)
 			var apiVersion string
 
 			//manuel-scaler trait
@@ -89,13 +90,13 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			}
 
 			if comp.Spec.WorkloadType == WorkloadTypeServer || comp.Spec.WorkloadType == WorkloadTypeSingletonServer {
-				service := convertService(owner, labels, compConf, *comp)
+				service := convertService(owner, annotations, compConf, *comp)
 				if err := createOrUpdateService(s, ac, compConf.ComponentName, service); err != nil {
 					handlerLog.Info("Create or update service error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
 
 				//ingress trait
-				ingress := convertIngress(owner, labels, compConf.InstanceName, compConf.Traits)
+				ingress := convertIngress(owner, annotations, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateIngress(s, ac, compConf.ComponentName, ingress); err != nil {
 					handlerLog.Info("Create or update ingress error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
@@ -106,7 +107,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			if comp.Spec.WorkloadType == WorkloadTypeServer || comp.Spec.WorkloadType == WorkloadTypeWorker {
 				//apiVersion = "extensions/v1beta1"
 				apiVersion = "apps/v1"
-				hpa := convertHpa(owner, labels, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
+				hpa := convertHpa(owner, annotations, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHpa(s, ac, compConf.ComponentName, hpa); err != nil {
 					handlerLog.Info("Create or update hpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
@@ -116,14 +117,14 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			//better-auto-scaler trait
 			if comp.Spec.WorkloadType == WorkloadTypeServer || comp.Spec.WorkloadType == WorkloadTypeWorker {
 				apiVersion = "apps/v1"
-				hcHpa := convertHcHpa(owner, labels, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
+				hcHpa := convertHcHpa(owner, annotations, "Deployment", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHcHpa(s, ac, compConf.ComponentName, hcHpa); err != nil {
 					handlerLog.Info("Create or update hcHpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
 			}
 
 		case WorkloadTypeTask, WorkloadTypeSingletonTask:
-			job := convertJob(owner, labels, compConf, *comp, parameterMap)
+			job := convertJob(owner, annotations, compConf, *comp, parameterMap)
 			var apiVersion string
 
 			//manuel-scaler trait
@@ -152,7 +153,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			//auto-scaler trait
 			if comp.Spec.WorkloadType == WorkloadTypeTask {
 				apiVersion = "batch/v1"
-				hpa := convertHpa(owner, labels, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
+				hpa := convertHpa(owner, annotations, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHpa(s, ac, compConf.ComponentName, hpa); err != nil {
 					handlerLog.Info("Create or update hpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
@@ -161,7 +162,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			//better-auto-scaler trait
 			if comp.Spec.WorkloadType == WorkloadTypeTask {
 				apiVersion = "batch/v1"
-				hcHpa := convertHcHpa(owner, labels, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
+				hcHpa := convertHcHpa(owner, annotations, "Job", apiVersion, compConf.InstanceName, compConf.Traits)
 				if err := createOrUpdateHcHpa(s, ac, compConf.ComponentName, hcHpa); err != nil {
 					handlerLog.Info("Create or update hcHpa error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
 				}
@@ -197,7 +198,12 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 	}
 
 	// update status
-	s.Oamclient.CoreV1alpha1().ApplicationConfigurations(ac.Namespace).UpdateStatus(ac)
+	if err := updateModuleStatus(s, ac); err != nil {
+		handlerLog.Info("ApplicationConfiguration sync failed.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name)
+		s.Recorder.Event(ac, apiv1.EventTypeWarning, SyncFailed, fmt.Sprintf(err.Error()))
+	} else {
+		s.Recorder.Event(ac, apiv1.EventTypeNormal, Synced, fmt.Sprintf(SyncSuccessfuly))
+	}
 
 	return nil
 }
@@ -222,7 +228,8 @@ func createOrUpdateConfigMap(s *ApplicationConfigurationHandler, applicationConf
 			return nil
 		}
 		if err != nil {
-			handlerLog.Info("ConfigMap patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "ConfigMap", configMap.Name, "Error", err)
+			handlerLog.Info("ConfigMap patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, ConfigMapKind, configMap.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, configMap.Name, ConfigMapApiVersion, ConfigMapKind, configMap.Annotations[Instance], configMap.Annotations[Role], PatchFailed)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else if cmResult.ResourceVersion != tmpCm.ResourceVersion {
@@ -233,12 +240,11 @@ func createOrUpdateConfigMap(s *ApplicationConfigurationHandler, applicationConf
 		cmResult, err := configMapClient.Create(&configMap)
 		if err != nil {
 			handlerLog.Info("ConfigMap create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "ConfigMap", configMap.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, configMap.Name, "ConfigMap", "v1", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, configMap.Name, ConfigMapApiVersion, ConfigMapKind, configMap.Annotations["instance"], configMap.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("ConfigMap created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "ConfigMap", cmResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, configMap.Name, "ConfigMap", "v1", Created)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, apiv1.ResourceConfigMaps, cmResult.Name))
 		}
 	}
@@ -259,12 +265,11 @@ func createOrUpdatePvc(s *ApplicationConfigurationHandler, applicationConfigurat
 	pvcResult, err := pvcsClient.Create(&pvc)
 	if err != nil {
 		handlerLog.Info("Pvc create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Pvc", pvc.Name, "Error", err)
-		addModuleStatus(&applicationConfiguration.Status.Modules, pvc.Name, "PersistentVolumeClaim", "v1", Failed)
+		addResourceStatus(&applicationConfiguration.Status.Resources, pvc.Name, PvcApiVersion, "PersistentVolumeClaim", pvc.Annotations["instance"], pvc.Annotations["role"], "Create Failed")
 		s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 		return err
 	} else {
 		handlerLog.Info("Pvc created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Pvc", pvcResult.Name)
-		addModuleStatus(&applicationConfiguration.Status.Modules, pvc.Name, "PersistentVolumeClaim", "v1", Created)
 		s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, apiv1.ResourcePersistentVolumeClaims, pvcResult.Name))
 	}
 	return nil
@@ -296,18 +301,18 @@ func createOrUpdateDeployment(s *ApplicationConfigurationHandler, applicationCon
 			return nil
 		} else if deployResult.ResourceVersion != tmpDeploy.ResourceVersion {
 			handlerLog.Info("Deployment patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Deployment", deployResult.Name)
+			addResourceStatus(&applicationConfiguration.Status.Resources, deployment.Name, DeploymentApiVersion, "Deployment", deployment.Annotations["instance"], deployment.Annotations["role"], "Patch Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "deployments", deployResult.Name))
 		}
 	} else {
 		deployResult, err := deploymentsClient.Create(deployment)
 		if err != nil {
 			handlerLog.Info("Deployment create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Deployment", deployment.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, deployment.Name, "Deployment", "apps/v1", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, deployment.Name, DeploymentApiVersion, "Deployment", deployment.Annotations["instance"], deployment.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("Deployment created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Deployment", deployResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, deployment.Name, "Deployment", "apps/v1", Created)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, "deployments", deployResult.Name))
 		}
 	}
@@ -337,6 +342,7 @@ func createOrUpdateJob(s *ApplicationConfigurationHandler, applicationConfigurat
 		jobResult, err := jobsClient.Patch(job.Name, types.MergePatchType, patchData)
 		if err != nil {
 			handlerLog.Info("Job patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Job", job.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, job.Name, JobApiVersion, "Job", job.Annotations["instance"], job.Annotations["role"], "Patch Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else if jobResult.ResourceVersion != tmpJob.ResourceVersion {
@@ -347,12 +353,11 @@ func createOrUpdateJob(s *ApplicationConfigurationHandler, applicationConfigurat
 		jobResult, err := jobsClient.Create(job)
 		if err != nil {
 			handlerLog.Info("Job create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Job", job.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, job.Name, "Deployment", "apps/v1", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, job.Name, JobApiVersion, "Job", job.Annotations["instance"], job.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("Job created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Job", jobResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, job.Name, "Deployment", "apps/v1", Created)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, "jobs", jobResult.Name))
 		}
 	}
@@ -370,6 +375,7 @@ func createOrUpdateMysqlCluster(s *ApplicationConfigurationHandler, applicationC
 		mysqlClusterResult, err := mysqlClustersClient.Patch(nil, mysqlCluster.Name, types.MergePatchType, patchData, v1.PatchOptions{})
 		if err != nil {
 			handlerLog.Info("MysqlCluster patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "MysqlCluster", mysqlCluster.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, mysqlCluster.Name, MysqlClusterApiVersion, "MysqlCluster", mysqlCluster.Annotations["instance"], mysqlCluster.Annotations["role"], "Patch Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else if mysqlClusterResult.ResourceVersion != tmpMysqlCluster.ResourceVersion {
@@ -380,12 +386,11 @@ func createOrUpdateMysqlCluster(s *ApplicationConfigurationHandler, applicationC
 		mysqlClusterResult, err := mysqlClustersClient.Create(nil, mysqlCluster, v1.CreateOptions{})
 		if err != nil {
 			handlerLog.Info("MysqlCluster create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "MysqlCluster", mysqlCluster.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, mysqlCluster.Name, "MysqlCluster", "mysql.middleware.harmonycloud.cn/v1alpha1", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, mysqlCluster.Name, MysqlClusterApiVersion, "MysqlCluster", mysqlCluster.Annotations["instance"], mysqlCluster.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("MysqlCluster created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "MysqlCluster", mysqlClusterResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, mysqlCluster.Name, "MysqlCluster", "mysql.middleware.harmonycloud.cn/v1alpha1ap	fffaaa", Created)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, "mysqlclusters", mysqlClusterResult.Name))
 		}
 	}
@@ -403,6 +408,7 @@ func createOrUpdateService(s *ApplicationConfigurationHandler, applicationConfig
 		svcResult, err := serviceClient.Patch(service.Name, types.MergePatchType, patchData)
 		if err != nil {
 			handlerLog.Info("Service patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Service", service.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, service.Name, MysqlClusterApiVersion, "Service", service.Annotations["instance"], service.Annotations["role"], "Patch Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else if svcResult.ResourceVersion != tmpsvc.ResourceVersion {
@@ -413,12 +419,11 @@ func createOrUpdateService(s *ApplicationConfigurationHandler, applicationConfig
 		svcResult, err := serviceClient.Create(service)
 		if err != nil {
 			handlerLog.Info("Service create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Service", service.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, service.Name, "Service", "v1", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, service.Name, MysqlClusterApiVersion, "Service", service.Annotations["instance"], service.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("Service created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Service", svcResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, service.Name, "Service", "v1", Created)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, apiv1.ResourceServices, svcResult.Name))
 		}
 	}
@@ -437,6 +442,7 @@ func createOrUpdateIngress(s *ApplicationConfigurationHandler, applicationConfig
 		ingResult, err := ingressClient.Patch(ingress.Name, types.MergePatchType, patchData)
 		if err != nil {
 			handlerLog.Info("Ingress patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Ingress", ingress.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, ingress.Name, IngressApiVersion, "Ingress", ingress.Annotations["instance"], ingress.Annotations["role"], "Patch Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else if ingResult.ResourceVersion != tmpIng.ResourceVersion {
@@ -447,12 +453,11 @@ func createOrUpdateIngress(s *ApplicationConfigurationHandler, applicationConfig
 		ingResult, err := ingressClient.Create(ingress)
 		if err != nil {
 			handlerLog.Info("Ingress create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Ingress", ingress.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, ingress.Name, "Ingress", "extensions/v1beta1", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, ingress.Name, IngressApiVersion, "Ingress", ingress.Annotations["instance"], ingress.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("Ingress created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Ingress", ingResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, ingress.Name, "Ingress", "extensions/v1beta1", Created)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, "ingresses", ingResult.Name))
 		}
 	}
@@ -471,22 +476,25 @@ func createOrUpdateHpa(s *ApplicationConfigurationHandler, applicationConfigurat
 		hpaResult, err := hpaClient.Patch(hpa.Name, types.MergePatchType, patchData)
 		if err != nil {
 			handlerLog.Info("Hpa patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Hpa", hpa.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, hpa.Name, HpaApiVersion, "HorizontalPodAutoscaler", hpa.Annotations["instance"], hpa.Annotations["role"], "Patch Failed")
+
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else if hpaResult.ResourceVersion != tmpHpa.ResourceVersion {
 			handlerLog.Info("Hpa patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Hpa", hpaResult.Name)
+			addResourceStatus(&applicationConfiguration.Status.Resources, hpa.Name, HpaApiVersion, "HorizontalPodAutoscaler", hpa.Annotations["instance"], hpa.Annotations["role"], "Patch Succeeded")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, "hpas", hpaResult.Name))
 		}
 	} else {
 		hpaResult, err := hpaClient.Create(hpa)
 		if err != nil {
 			handlerLog.Info("Hpa create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Hpa", hpa.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, hpa.Name, "HorizontalPodAutoscaler", "autoscaling/v2beta2", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, hpa.Name, HpaApiVersion, "HorizontalPodAutoscaler", hpa.Annotations["instance"], hpa.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("Hpa created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Hpa", hpaResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, hpa.Name, "HorizontalPodAutoscaler", "autoscaling/v2beta2", Created)
+			addResourceStatus(&applicationConfiguration.Status.Resources, hpa.Name, HpaApiVersion, "HorizontalPodAutoscaler", hpa.Annotations["instance"], hpa.Annotations["role"], "Create Succeeded")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, "hpas", hpaResult.Name))
 		}
 	}
@@ -504,6 +512,7 @@ func createOrUpdateHcHpa(s *ApplicationConfigurationHandler, applicationConfigur
 		hcHpaResult, err := hcHpaClient.Patch(nil, hcHpa.Name, types.MergePatchType, patchData, v1.PatchOptions{})
 		if err != nil {
 			handlerLog.Info("HcHpa patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "HcHpa", hcHpa.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, hcHpa.Name, HcHpaApiVersion, "HorizontalPodAutoscaler", hcHpa.Annotations["instance"], hcHpa.Annotations["role"], "Patch Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else if hcHpaResult.ResourceVersion != tmpHcHpa.ResourceVersion {
@@ -514,14 +523,103 @@ func createOrUpdateHcHpa(s *ApplicationConfigurationHandler, applicationConfigur
 		hcHpaResult, err := hcHpaClient.Create(nil, hcHpa, v1.CreateOptions{})
 		if err != nil {
 			handlerLog.Info("HcHpa create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "HcHpa", hcHpa.Name, "Error", err)
-			addModuleStatus(&applicationConfiguration.Status.Modules, hcHpa.Name, "HorizontalPodAutoscaler", "harmonycloud.cn/v1beta1", Failed)
+			addResourceStatus(&applicationConfiguration.Status.Resources, hcHpa.Name, HcHpaApiVersion, "HorizontalPodAutoscaler", hcHpa.Annotations["instance"], hcHpa.Annotations["role"], "Create Failed")
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
 			return err
 		} else {
 			handlerLog.Info("HcHpa created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "HcHpa", hcHpaResult.Name)
-			addModuleStatus(&applicationConfiguration.Status.Modules, hcHpa.Name, "HorizontalPodAutoscaler", "harmonycloud.cn/v1beta1", Created)
 			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, "hchpas", hcHpaResult.Name))
 		}
+	}
+	return nil
+}
+
+func updateModuleStatus(s *ApplicationConfigurationHandler, ac *v1alpha1.ApplicationConfiguration) error {
+	for _, compConf := range ac.Spec.Components {
+		status := Unhealthy
+		comp, err := s.Oamclient.CoreV1alpha1().ComponentSchematics(ac.Namespace).Get(compConf.ComponentName, v1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		var kind string
+		var groupVersion string
+		switch comp.Spec.WorkloadType {
+		case WorkloadTypeServer:
+			kind = ServerKind
+			groupVersion = OamV1alpha1GroupVersion
+		case WorkloadTypeSingletonServer:
+			kind = SingletonServerKind
+			groupVersion = OamV1alpha1GroupVersion
+		case WorkloadTypeWorker:
+			kind = WorkerKind
+			groupVersion = OamV1alpha1GroupVersion
+		case WorkloadTypeSingletonWorker:
+			kind = SingletonWorkerKind
+			groupVersion = OamV1alpha1GroupVersion
+		case WorkloadTypeTask:
+			kind = TaskKind
+			groupVersion = OamV1alpha1GroupVersion
+		case WorkloadTypeSingletonTask:
+			kind = SingletonTaskKind
+			groupVersion = OamV1alpha1GroupVersion
+		case WorkloadTypeMysqlCluster:
+			kind = MysqlClusterKind
+			groupVersion = MysqlClusterGroupVersion
+		default:
+			return errors.New("WorkloadType " + comp.Spec.WorkloadType + " is undefined")
+		}
+	resourceLoop:
+		for _, r := range ac.Status.Resources {
+			if compConf.InstanceName != r.Component {
+				continue
+			}
+			if r.Status == PatchFailed || r.Status == CreateFailed {
+				break
+			}
+			switch r.Kind {
+			case DeploymentKind:
+				readyStatus := MiddleString(r.Status, "Ready:", " Up-to-date: ")
+				readyCount := MiddleString(readyStatus, " ", "/")
+				replicaCount := MiddleString(readyStatus, "/", ",")
+				if readyCount == "0" || readyCount != replicaCount {
+					break resourceLoop
+				} else {
+					status = Healthy
+				}
+			case JobKind:
+				failedCount := MiddleString(r.Status, ", Failed: ", ".")
+				if failedCount != "0" || failedCount != "" {
+					break resourceLoop
+				} else {
+					status = Healthy
+				}
+			case HpaKind:
+				currentCount := MiddleString(r.Status, "CurrentReplicas: ", ", DesiredReplicas: ")
+				desiredCount := MiddleString(r.Status, ", DesiredReplicas: ", ".")
+				if currentCount != desiredCount {
+					break resourceLoop
+				} else {
+					status = Healthy
+				}
+			case PvcKind:
+				if !strings.HasSuffix(status, "Bound.") {
+					break resourceLoop
+				} else {
+					status = Healthy
+				}
+			case ServiceKind, ConfigMapKind, IngressKind:
+				status = Healthy
+			default:
+				return errors.New("Kind " + kind + " is undefined")
+			}
+			addModuleStatus(&ac.Status.Modules, compConf.InstanceName, kind, groupVersion, status)
+		}
+
+	}
+	ac.Status.Phase = Synced
+	ac, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(ac.Namespace).UpdateStatus(ac)
+	if err != nil {
+		return err
 	}
 	return nil
 }

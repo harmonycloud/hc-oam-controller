@@ -11,12 +11,19 @@ const (
 	WorkloadTypeMysqlCluster    = "harmonycloud.cn/v1alpha1.MysqlCluster"
 
 	// event reasons
-	Created       = "Created"
-	Updated       = "Updated"
-	Patched       = "Patched"
-	Failed        = "Failed"
-	SuccessSynced = "Synced"
+	Created         = "Created"
+	Updated         = "Updated"
+	Patched         = "Patched"
+	Failed          = "Failed"
+	Synced          = "Synced"
+	SyncFailed      = "Sync Failed"
+	SyncSuccessfuly = "Sync Successfully"
 
+	// status
+	PatchFailed  = "Patch Failed"
+	CreateFailed = "Create Failed"
+	Healthy      = "Healthy"
+	Unhealthy    = "Unhealthy"
 	// event messages
 	MessageResourceExists  = "Resource %s/%s already exists and is not managed by Foo"
 	MessageResourceCreated = "Resource %s/%s created successfully"
@@ -24,4 +31,48 @@ const (
 	MessageResourcePatched = "Resource %s/%s patched successfully"
 
 	MessageResourceSynced = "ApplicationConfiguration synced successfully"
+
+	//kind
+	DeploymentKind   = "Deployment"
+	ServiceKind      = "Service"
+	IngressKind      = "Ingress"
+	JobKind          = "Job"
+	ConfigMapKind    = "ConfigMap"
+	HpaKind          = "HorizontalPodAutoscaler"
+	HcHpaKind        = "HorizontalPodAutoscaler"
+	PvcKind          = "PersistentVolumeClaim"
+	MysqlClusterKind = "MysqlCluster"
+
+	ServerKind          = "Server"
+	SingletonServerKind = "SingletonServer"
+	WorkerKind          = "Worker"
+	SingletonWorkerKind = "SingletonWorker"
+	TaskKind            = "Task"
+	SingletonTaskKind   = "SingletonTask"
+
+	// group version
+	OamV1alpha1GroupVersion  = "core.oam.dev/v1alpha1"
+	MysqlClusterGroupVersion = "mysql.middleware.harmonycloud.cn/v1alpha1"
+
+	// api version
+	DeploymentApiVersion         = "apps/v1"
+	ServiceApiVersion            = "v1"
+	IngressApiVersion            = "extensions/v1beta1"
+	JobApiVersion                = "batch/v1"
+	ConfigMapApiVersion          = "v1"
+	HpaApiVersion                = "autoscaling/v1"
+	HcHpaApiVersion              = "harmonycloud.cn/v1beta1"
+	PvcApiVersion                = "v1"
+	MysqlClusterApiVersion       = "mysql.middleware.harmonycloud.cn/v1alpha1"
+	ApplicationConfigurationKind = "ApplicationConfiguration"
+	Component                    = "Component"
+
+	// label
+	Role     = "role"
+	Instance = "instance"
+	Workload = "workload"
+	Trait    = "trait"
+
+	// common
+	Error = "Error"
 )

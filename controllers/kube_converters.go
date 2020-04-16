@@ -13,9 +13,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func convertDeployment(owner v1.OwnerReference, labels map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *appsv1.Deployment {
-	labels["role"] = "workload"
-	labels["app"] = compConf.InstanceName
+func convertDeployment(owner v1.OwnerReference, annotations map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *appsv1.Deployment {
+	annotations["role"] = "workload"
 	containers := convertContainers(owner, compConf.InstanceName, comp.Spec.Containers, parameterMap)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -23,15 +22,22 @@ func convertDeployment(owner v1.OwnerReference, labels map[string]string, compCo
 			OwnerReferences: []v1.OwnerReference{
 				owner,
 			},
-			Labels: labels,
+			Annotations: annotations,
+			Labels: map[string]string{
+				"app": compConf.InstanceName,
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: map[string]string{
+					"app": compConf.InstanceName,
+				},
 			},
 			Template: apiv1.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: labels,
+					Labels: map[string]string{
+						"app": compConf.InstanceName,
+					},
 				},
 				Spec: apiv1.PodSpec{
 					Containers: containers,
@@ -43,9 +49,8 @@ func convertDeployment(owner v1.OwnerReference, labels map[string]string, compCo
 	return deployment
 }
 
-func convertService(owner v1.OwnerReference, labels map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic) *apiv1.Service {
-	labels["role"] = "workload"
-	labels["app"] = compConf.InstanceName
+func convertService(owner v1.OwnerReference, annotations map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic) *apiv1.Service {
+	annotations["role"] = "workload"
 	servicePorts := convertsServicePorts(comp.Spec.Containers)
 	if servicePorts == nil || cap(servicePorts) == 0 {
 		return nil
@@ -57,12 +62,17 @@ func convertService(owner v1.OwnerReference, labels map[string]string, compConf 
 			OwnerReferences: []v1.OwnerReference{
 				owner,
 			},
-			Labels: labels,
+			Annotations: annotations,
+			Labels: map[string]string{
+				"app": compConf.InstanceName,
+			},
 		},
 		Spec: apiv1.ServiceSpec{
-			Ports:    servicePorts,
-			Selector: labels,
-			Type:     "ClusterIP",
+			Ports: servicePorts,
+			Selector: map[string]string{
+				"app": compConf.InstanceName,
+			},
+			Type: "ClusterIP",
 		},
 	}
 	return service
@@ -89,8 +99,8 @@ func convertsServicePorts(oamContainers []v1alpha1.Container) []apiv1.ServicePor
 	return servicePorts
 }
 
-func convertJob(owner v1.OwnerReference, labels map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *batchv1.Job {
-	labels["role"] = "workload"
+func convertJob(owner v1.OwnerReference, annotations map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *batchv1.Job {
+	annotations["role"] = "workload"
 	containers := convertContainers(owner, compConf.InstanceName, comp.Spec.Containers, parameterMap)
 	job := &batchv1.Job{
 		ObjectMeta: v1.ObjectMeta{
@@ -98,7 +108,7 @@ func convertJob(owner v1.OwnerReference, labels map[string]string, compConf v1al
 			OwnerReferences: []v1.OwnerReference{
 				owner,
 			},
-			Labels: labels,
+			Annotations: annotations,
 		},
 		Spec: batchv1.JobSpec{
 			Template: apiv1.PodTemplateSpec{
@@ -111,8 +121,8 @@ func convertJob(owner v1.OwnerReference, labels map[string]string, compConf v1al
 	return job
 }
 
-func convertCornJob(owner v1.OwnerReference, labels map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *batchv1beta1.CronJob {
-	labels["role"] = "workload"
+func convertCornJob(owner v1.OwnerReference, annotations map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) *batchv1beta1.CronJob {
+	annotations["role"] = "workload"
 	containers := convertContainers(owner, compConf.InstanceName, comp.Spec.Containers, parameterMap)
 	cronJob := &batchv1beta1.CronJob{
 		ObjectMeta: v1.ObjectMeta{
@@ -120,7 +130,7 @@ func convertCornJob(owner v1.OwnerReference, labels map[string]string, compConf 
 			OwnerReferences: []v1.OwnerReference{
 				owner,
 			},
-			Labels: labels,
+			Annotations: annotations,
 		},
 		Spec: batchv1beta1.CronJobSpec{
 			Schedule: "",
@@ -171,18 +181,18 @@ func convertContainerPorts(oamContainer v1alpha1.Container) []apiv1.ContainerPor
 	return containerPorts
 }
 
-func convertConfigMaps(owner v1.OwnerReference, labels map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) []apiv1.ConfigMap {
-	labels["role"] = "workload"
+func convertConfigMaps(owner v1.OwnerReference, annotations map[string]string, compConf v1alpha1.ComponentConfiguration, comp v1alpha1.ComponentSchematic, parameterMap map[string]string) []apiv1.ConfigMap {
+	annotations["role"] = "workload"
 	var configMaps []apiv1.ConfigMap
 	for _, container := range comp.Spec.Containers {
-		if configMap := convertConfigMap(owner, labels, container.Config, parameterMap, compConf.InstanceName+"-"+container.Name); configMap != nil {
+		if configMap := convertConfigMap(owner, annotations, container.Config, parameterMap, compConf.InstanceName+"-"+container.Name); configMap != nil {
 			configMaps = append(configMaps, *configMap)
 		}
 	}
 	return configMaps
 }
 
-func convertConfigMap(owner v1.OwnerReference, labels map[string]string, oamConfigFile []v1alpha1.ConfigFile, parameterMap map[string]string, configMapName string) *apiv1.ConfigMap {
+func convertConfigMap(owner v1.OwnerReference, annotations map[string]string, oamConfigFile []v1alpha1.ConfigFile, parameterMap map[string]string, configMapName string) *apiv1.ConfigMap {
 	if oamConfigFile == nil {
 		return nil
 	}
@@ -192,7 +202,7 @@ func convertConfigMap(owner v1.OwnerReference, labels map[string]string, oamConf
 			OwnerReferences: []v1.OwnerReference{
 				owner,
 			},
-			Labels: labels,
+			Annotations: annotations,
 		},
 		Data: map[string]string{},
 	}
