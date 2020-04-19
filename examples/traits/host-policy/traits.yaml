@@ -1,0 +1,37 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: Trait
+metadata:
+  name: host-policy
+  annotations:
+    version: v1.0.0
+    description: "HostPolicy Trait is used for components to use host namespace."
+spec:
+  appliesTo:
+    - core.oam.dev/v1alpha1.Server
+    - core.oam.dev/v1alpha1.SingletonServer
+    - core.oam.dev/v1alpha1.Worker
+    - core.oam.dev/v1alpha1.SingletonWorker
+    - core.oam.dev/v1alpha1.Task
+    - core.oam.dev/v1alpha1.SingletonTask
+  properties: |
+    {
+        "$schema":"http://json-schema.org/draft-07/schema#",
+        "type":"object",
+        "properties":{
+            "hostNetwork":{
+                "type":"boolean",
+                "description":"hostNetwork switch",
+                "default":false
+            },
+            "hostPid":{
+                "type":"boolean",
+                "description":"hostPid switch",
+                "default":false
+            },
+            "hostIpc":{
+                "type":"boolean",
+                "description":"hostIpc switch",
+                "default":false
+            }
+        }
+    }

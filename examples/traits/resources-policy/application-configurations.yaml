@@ -1,0 +1,15 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: resource-example
+spec:
+  components:
+    - componentName: nginx-replicated
+      instanceName: resource-demo
+      traits:
+        - name: resources-policy
+          properties:
+            container: server
+            limits:
+              cpu: 200m
+              memory: 256Mi

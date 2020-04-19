@@ -83,7 +83,14 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			deployment.Spec.Template.Spec.Volumes = volumes
 			for i, _ := range deployment.Spec.Template.Spec.Containers {
 				injectLogPilotConfigs(&deployment.Spec.Template.Spec.Containers[i], compConf.Traits)
+				// resources-policy
+				injectResourcesPolicy(&deployment.Spec.Template.Spec.Containers[i], compConf.Traits)
 			}
+
+			// host-policy trait
+			injectHostPolicy(&deployment.Spec.Template.Spec, compConf.Traits)
+			// schedule-policy
+			injectSchedulePolicy(ac.Namespace, &deployment.Spec.Template.Spec, compConf.Traits)
 
 			if err := createOrUpdateDeployment(s, ac, compConf.ComponentName, deployment); err != nil {
 				handlerLog.Info("Create or update deployment error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)
@@ -144,7 +151,14 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 			job.Spec.Template.Spec.Volumes = volumes
 			for i, _ := range job.Spec.Template.Spec.Containers {
 				injectLogPilotConfigs(&job.Spec.Template.Spec.Containers[i], compConf.Traits)
+				// resources-policy
+				injectResourcesPolicy(&job.Spec.Template.Spec.Containers[i], compConf.Traits)
 			}
+
+			// host-policy trait
+			injectHostPolicy(&job.Spec.Template.Spec, compConf.Traits)
+			// schedule-policy
+			injectSchedulePolicy(ac.Namespace, &job.Spec.Template.Spec, compConf.Traits)
 
 			if err := createOrUpdateJob(s, ac, compConf.ComponentName, job); err != nil {
 				handlerLog.Info("Create or update job error.", "Namespace", ac.Namespace, "ApplicationConfiguration", ac.Name, "Component", compConf.ComponentName, "Error", err)

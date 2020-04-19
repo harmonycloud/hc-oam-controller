@@ -1,0 +1,26 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: schedule-example
+spec:
+  components:
+    - componentName: nginx-replicated
+      instanceName: schedule-demo
+      traits:
+        - name: schedule-policy
+          properties:
+            nodeAffinity:
+              type: required
+              selector:
+                k-node-1: v-node-1
+                k-node-2: v-node-2
+            podAffinity:
+              type: required
+              selector:
+                k-pod-1: v-pod-1
+                k-pod-2: v-pod-2
+            podAntiAffinity:
+              type: required
+              selector:
+                k-pod-anti-1: v-pod-anti-1
+                k-pod-anti-2: v-pod-anti-2
