@@ -1,0 +1,14 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ApplicationConfiguration
+metadata:
+  name: host-example
+spec:
+  components:
+    - componentName: nginx-replicated
+      instanceName: host-demo
+      traits:
+        - name: host-policy
+          properties:
+            hostNetwork: true
+            hostPid: true
+            hostIpc: true

@@ -1,0 +1,13 @@
+apiVersion: core.oam.dev/v1alpha1
+kind: ComponentSchematic
+metadata:
+  name: nginx-replicated
+spec:
+  workloadType: core.oam.dev/v1alpha1.Server
+  containers:
+    - image: nginx:latest
+      name: server
+      ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
