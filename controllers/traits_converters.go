@@ -2,16 +2,24 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/oam-dev/oam-go-sdk/apis/core.oam.dev/v1alpha1"
+	traits2 "hc-oam-controller/api/core.oam.dev/v1alpha1/traits"
 	hcv1beta1 "hc-oam-controller/api/harmonycloud.cn/v1beta1"
 	"k8s.io/api/autoscaling/v2beta2"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	//"k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
+)
+
+var (
+	traitsConverterLog = ctrl.Log.WithName("traits-converter")
 )
 
 func convertHpa(owner v1.OwnerReference, annotations map[string]string, kind string, apiVersion string, instanceName string, traits []v1alpha1.TraitBinding) *v2beta2.HorizontalPodAutoscaler {
@@ -107,31 +115,18 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 		if tr.Name != "better-auto-scaler" {
 			continue
 		}
-		values, err := parsePropertiesOfTrait(tr)
-		if err != nil {
-			continue
+		betterAutoScaler := new(traits2.BetterAutoScaler)
+		if err := json.Unmarshal(tr.Properties.Raw, &betterAutoScaler); err != nil {
+			traitsConverterLog.Info(err.Error())
 		}
 
-		min, ok := values["minimum"]
-		var minimum int32
-		if !ok {
-			minimum = 1
-		} else {
-			minimum = int32(min.(float64))
+		if betterAutoScaler.Minimum < 1 {
+			betterAutoScaler.Minimum = 1
 		}
 
-		max, ok := values["maximum"]
-		var maximum int32
-		if !ok {
-			maximum = 10
-		} else {
-			maximum = int32(max.(float64))
-		}
-
-		cpuUp, ok := values["cpu-up"]
 		var cpuUpMetric hcv1beta1.MetricSpec
-		if ok {
-			utilization := int32(cpuUp.(float64))
+		if betterAutoScaler.CpuUp > 0 && betterAutoScaler.CpuUp < 100 {
+			utilization := betterAutoScaler.CpuUp
 			cpuUpMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
 				Resource: &hcv1beta1.ResourceMetricSource{
@@ -145,10 +140,9 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 			}
 		}
 
-		cpuDown, ok := values["cpu-down"]
 		var cpuDownMetric hcv1beta1.MetricSpec
-		if ok {
-			utilization := int32(cpuDown.(float64))
+		if betterAutoScaler.CpuDown > 0 && betterAutoScaler.CpuDown < 100 {
+			utilization := betterAutoScaler.CpuDown
 			cpuDownMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
 				Resource: &hcv1beta1.ResourceMetricSource{
@@ -162,10 +156,9 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 			}
 		}
 
-		memoryUp, ok := values["memory-up"]
 		var memoryUpMetric hcv1beta1.MetricSpec
-		if ok {
-			utilization := int32(memoryUp.(float64))
+		if betterAutoScaler.MemoryUp > 0 && betterAutoScaler.MemoryUp < 100 {
+			utilization := betterAutoScaler.MemoryUp
 			memoryUpMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
 				Resource: &hcv1beta1.ResourceMetricSource{
@@ -179,10 +172,9 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 			}
 		}
 
-		memoryDown, ok := values["memory-down"]
 		var memoryDownMetric hcv1beta1.MetricSpec
-		if ok {
-			utilization := int32(memoryDown.(float64))
+		if betterAutoScaler.MemoryDown > 0 && betterAutoScaler.MemoryDown < 100 {
+			utilization := betterAutoScaler.MemoryDown
 			memoryDownMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
 				Resource: &hcv1beta1.ResourceMetricSource{
@@ -210,8 +202,8 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 					Name:       instanceName,
 					APIVersion: apiVersion,
 				},
-				MinReplicas: &minimum,
-				MaxReplicas: maximum,
+				MinReplicas: &betterAutoScaler.Minimum,
+				MaxReplicas: betterAutoScaler.Maximum,
 				Metrics: []hcv1beta1.MetricSpec{
 					cpuUpMetric,
 					cpuDownMetric,
@@ -354,8 +346,9 @@ func convertPvcsFromVolumeMounters(owner v1.OwnerReference, annotations map[stri
 				}
 			}
 		}
-		if &oamVolume == nil {
-			handlerLog.Info("Volume can not found in componentSchematic.", "ComponentSchematic", comp.Name, "volume", volumeName)
+		if &oamVolume == nil || oamVolume.Disk == nil {
+			msg := fmt.Sprintf("Volume can not found in componentSchematic.", "ComponentSchematic", comp.Name, "volume", volumeName)
+			handlerLog.Info(msg)
 			continue
 		}
 

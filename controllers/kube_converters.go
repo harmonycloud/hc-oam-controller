@@ -285,25 +285,37 @@ func convertProbe(oamProbe *v1alpha1.HealthProbe) *apiv1.Probe {
 	if oamProbe == nil {
 		return nil
 	}
+	var execAction *apiv1.ExecAction
+	if oamProbe.Exec != nil {
+		execAction = &apiv1.ExecAction{Command: oamProbe.Exec.Command}
+	}
+	var httpGetAction *apiv1.HTTPGetAction
+	if oamProbe.HttpGet != nil {
+		httpGetAction = &apiv1.HTTPGetAction{
+			Path: oamProbe.HttpGet.Path,
+			Port: intstr.IntOrString{
+				Type:   0,
+				IntVal: oamProbe.HttpGet.Port,
+				StrVal: "",
+			},
+			HTTPHeaders: convertHttpHeaders(oamProbe.HttpGet.HttpHeaders),
+		}
+	}
+	var tcpSocketAction *apiv1.TCPSocketAction
+	if oamProbe.TcpSocket != nil {
+		tcpSocketAction = &apiv1.TCPSocketAction{
+			Port: intstr.IntOrString{
+				Type:   0,
+				IntVal: oamProbe.TcpSocket.Port,
+				StrVal: "",
+			},
+		}
+	}
 	probe := apiv1.Probe{
 		Handler: apiv1.Handler{
-			Exec: &apiv1.ExecAction{Command: oamProbe.Exec.Command},
-			HTTPGet: &apiv1.HTTPGetAction{
-				Path: oamProbe.HttpGet.Path,
-				Port: intstr.IntOrString{
-					Type:   0,
-					IntVal: oamProbe.HttpGet.Port,
-					StrVal: "",
-				},
-				HTTPHeaders: convertHttpHeaders(oamProbe.HttpGet.HttpHeaders),
-			},
-			TCPSocket: &apiv1.TCPSocketAction{
-				Port: intstr.IntOrString{
-					Type:   0,
-					IntVal: oamProbe.TcpSocket.Port,
-					StrVal: "",
-				},
-			},
+			Exec:      execAction,
+			HTTPGet:   httpGetAction,
+			TCPSocket: tcpSocketAction,
 		},
 		InitialDelaySeconds: oamProbe.InitialDelaySeconds,
 		TimeoutSeconds:      oamProbe.TimeoutSeconds,

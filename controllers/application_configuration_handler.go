@@ -44,6 +44,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 		}
 		comp, err := s.Oamclient.CoreV1alpha1().ComponentSchematics(ac.Namespace).Get(compConf.ComponentName, v1.GetOptions{})
 		if err != nil {
+			s.Recorder.Event(ac, apiv1.EventTypeWarning, NotFound, fmt.Sprintf(ComponentNotFound, compConf.ComponentName))
 			return err
 		}
 
@@ -207,7 +208,7 @@ func (s *ApplicationConfigurationHandler) Handle(ctx *oam.ActionContext, obj run
 
 		default:
 			//You could launch you own CRD here according to workloadType
-			return errors.New("WorkloadType " + comp.Spec.WorkloadType + " is undefined")
+			s.Recorder.Event(ac, apiv1.EventTypeWarning, Undefined, fmt.Sprintf(WorkeloadTypeUndefined, comp.Spec.WorkloadType))
 		}
 	}
 

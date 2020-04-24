@@ -18,6 +18,8 @@ const (
 	Synced          = "Synced"
 	SyncFailed      = "Sync Failed"
 	SyncSuccessfuly = "Sync Successfully"
+	Undefined       = "Undefined"
+	NotFound        = "Not Found"
 
 	// status
 	PatchFailed  = "Patch Failed"
@@ -29,6 +31,8 @@ const (
 	MessageResourceCreated = "Resource %s/%s created successfully"
 	MessageResourceUpdated = "Resource %s/%s updated successfully"
 	MessageResourcePatched = "Resource %s/%s patched successfully"
+	WorkeloadTypeUndefined = "Workload type %s is undefined"
+	ComponentNotFound      = "ComponentSchematic %s not found"
 
 	MessageResourceSynced = "ApplicationConfiguration synced successfully"
 
