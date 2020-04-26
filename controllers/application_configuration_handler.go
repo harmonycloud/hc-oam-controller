@@ -627,9 +627,8 @@ func updateModuleStatus(s *ApplicationConfigurationHandler, ac *v1alpha1.Applica
 			default:
 				return errors.New("Kind " + kind + " is undefined")
 			}
-			addModuleStatus(&ac.Status.Modules, compConf.InstanceName, kind, groupVersion, status)
 		}
-
+		addModuleStatus(&ac.Status.Modules, compConf.InstanceName, kind, groupVersion, status)
 	}
 	ac.Status.Phase = Synced
 	ac, err := s.Oamclient.CoreV1alpha1().ApplicationConfigurations(ac.Namespace).UpdateStatus(ac)
