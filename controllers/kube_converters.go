@@ -113,7 +113,8 @@ func convertJob(owner v1.OwnerReference, annotations map[string]string, compConf
 		Spec: batchv1.JobSpec{
 			Template: apiv1.PodTemplateSpec{
 				Spec: apiv1.PodSpec{
-					Containers: containers,
+					RestartPolicy: apiv1.RestartPolicyOnFailure,
+					Containers:    containers,
 				},
 			},
 		},
@@ -138,7 +139,8 @@ func convertCornJob(owner v1.OwnerReference, annotations map[string]string, comp
 				Spec: batchv1.JobSpec{
 					Template: apiv1.PodTemplateSpec{
 						Spec: apiv1.PodSpec{
-							Containers: containers,
+							RestartPolicy: apiv1.RestartPolicyOnFailure,
+							Containers:    containers,
 						},
 					},
 				},
