@@ -1,10 +1,12 @@
 package traits
 
+import "k8s.io/apimachinery/pkg/util/intstr"
+
 type BetterAutoScaler struct {
-	Minimum    int32 `json:"minimum"`
-	Maximum    int32 `json:"maximum"`
-	MemoryUp   int32 `json:"memory-up,omitempty"`
-	MemoryDown int32 `json:"memory-down,omitempty"`
-	CpuUp      int32 `json:"cpu-up,omitempty"`
-	CpuDown    int32 `json:"cpu-down,omitempty"`
+	Minimum    intstr.IntOrString `json:"minimum"`
+	Maximum    intstr.IntOrString `json:"maximum"`
+	MemoryUp   intstr.IntOrString `json:"memory-up,omitempty"`
+	MemoryDown intstr.IntOrString `json:"memory-down,omitempty"`
+	CpuUp      intstr.IntOrString `json:"cpu-up,omitempty"`
+	CpuDown    intstr.IntOrString `json:"cpu-down,omitempty"`
 }

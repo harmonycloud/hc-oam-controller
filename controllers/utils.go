@@ -3,7 +3,14 @@ package controllers
 import (
 	"fmt"
 	"github.com/oam-dev/oam-go-sdk/apis/core.oam.dev/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"strconv"
 	"strings"
+)
+
+var (
+	utilsLog = ctrl.Log.WithName("utils")
 )
 
 func parseParameters(parameterValues []v1alpha1.ParameterValue, variables []v1alpha1.Variable) map[string]string {
@@ -88,4 +95,19 @@ func addModuleStatus(statusList *[]v1alpha1.ModuleStatus, name string, kind stri
 	}
 	*statusList = append(*statusList, moduleStatus)
 	return
+}
+
+func strVarToIntVar(ios *intstr.IntOrString) {
+	if ios.Type == intstr.String {
+		if ios.StrVal == "" {
+			return
+		}
+		ios.Type = intstr.Int
+		i, err := strconv.Atoi(ios.StrVal)
+		if err != nil {
+			utilsLog.Info(err.Error())
+		} else {
+			ios.IntVal = int32(i)
+		}
+	}
 }

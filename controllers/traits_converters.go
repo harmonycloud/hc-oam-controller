@@ -120,12 +120,31 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 			traitsConverterLog.Info(err.Error())
 		}
 
-		if betterAutoScaler.Minimum < 1 {
-			betterAutoScaler.Minimum = 1
+		strVarToIntVar(&betterAutoScaler.Maximum)
+		strVarToIntVar(&betterAutoScaler.Minimum)
+		strVarToIntVar(&betterAutoScaler.CpuDown)
+		strVarToIntVar(&betterAutoScaler.CpuUp)
+		strVarToIntVar(&betterAutoScaler.MemoryDown)
+		strVarToIntVar(&betterAutoScaler.MemoryUp)
+
+		if betterAutoScaler.Minimum.IntVal < 1 {
+			betterAutoScaler.Minimum = intstr.IntOrString{
+				Type:   0,
+				IntVal: 1,
+				StrVal: "",
+			}
+		}
+
+		if betterAutoScaler.Minimum.IntVal < 1 {
+			betterAutoScaler.Minimum = intstr.IntOrString{
+				Type:   0,
+				IntVal: 2,
+				StrVal: "",
+			}
 		}
 
 		var cpuUpMetric hcv1beta1.MetricSpec
-		if betterAutoScaler.CpuUp > 0 && betterAutoScaler.CpuUp < 100 {
+		if betterAutoScaler.CpuUp.IntVal > 0 && betterAutoScaler.CpuUp.IntVal < 100 {
 			utilization := betterAutoScaler.CpuUp
 			cpuUpMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
@@ -133,7 +152,7 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 					Name: "cpu",
 					Target: hcv1beta1.MetricTarget{
 						Type:               hcv1beta1.UtilizationMetricType,
-						AverageUtilization: &utilization,
+						AverageUtilization: &utilization.IntVal,
 						ScaleType:          hcv1beta1.ScaleUpMetricsTargetType,
 					},
 				},
@@ -141,7 +160,7 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 		}
 
 		var cpuDownMetric hcv1beta1.MetricSpec
-		if betterAutoScaler.CpuDown > 0 && betterAutoScaler.CpuDown < 100 {
+		if betterAutoScaler.CpuDown.IntVal > 0 && betterAutoScaler.CpuDown.IntVal < 100 {
 			utilization := betterAutoScaler.CpuDown
 			cpuDownMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
@@ -149,7 +168,7 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 					Name: "cpu",
 					Target: hcv1beta1.MetricTarget{
 						Type:               hcv1beta1.UtilizationMetricType,
-						AverageUtilization: &utilization,
+						AverageUtilization: &utilization.IntVal,
 						ScaleType:          hcv1beta1.ScaleDownMetricsTargetType,
 					},
 				},
@@ -157,7 +176,7 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 		}
 
 		var memoryUpMetric hcv1beta1.MetricSpec
-		if betterAutoScaler.MemoryUp > 0 && betterAutoScaler.MemoryUp < 100 {
+		if betterAutoScaler.MemoryUp.IntVal > 0 && betterAutoScaler.MemoryUp.IntVal < 100 {
 			utilization := betterAutoScaler.MemoryUp
 			memoryUpMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
@@ -165,7 +184,7 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 					Name: "memory",
 					Target: hcv1beta1.MetricTarget{
 						Type:               hcv1beta1.UtilizationMetricType,
-						AverageUtilization: &utilization,
+						AverageUtilization: &utilization.IntVal,
 						ScaleType:          hcv1beta1.ScaleUpMetricsTargetType,
 					},
 				},
@@ -173,7 +192,7 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 		}
 
 		var memoryDownMetric hcv1beta1.MetricSpec
-		if betterAutoScaler.MemoryDown > 0 && betterAutoScaler.MemoryDown < 100 {
+		if betterAutoScaler.MemoryDown.IntVal > 0 && betterAutoScaler.MemoryDown.IntVal < 100 {
 			utilization := betterAutoScaler.MemoryDown
 			memoryDownMetric = hcv1beta1.MetricSpec{
 				Type: hcv1beta1.ResourceMetricSourceType,
@@ -181,7 +200,7 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 					Name: "memory",
 					Target: hcv1beta1.MetricTarget{
 						Type:               hcv1beta1.UtilizationMetricType,
-						AverageUtilization: &utilization,
+						AverageUtilization: &utilization.IntVal,
 						ScaleType:          hcv1beta1.ScaleDownMetricsTargetType,
 					},
 				},
@@ -202,8 +221,8 @@ func convertHcHpa(owner v1.OwnerReference, annotations map[string]string, kind s
 					Name:       instanceName,
 					APIVersion: apiVersion,
 				},
-				MinReplicas: &betterAutoScaler.Minimum,
-				MaxReplicas: betterAutoScaler.Maximum,
+				MinReplicas: &betterAutoScaler.Minimum.IntVal,
+				MaxReplicas: betterAutoScaler.Maximum.IntVal,
 				Metrics: []hcv1beta1.MetricSpec{
 					cpuUpMetric,
 					cpuDownMetric,
