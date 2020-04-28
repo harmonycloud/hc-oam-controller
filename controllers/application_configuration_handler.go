@@ -277,6 +277,34 @@ func createOrUpdatePvcs(s *ApplicationConfigurationHandler, applicationConfigura
 
 func createOrUpdatePvc(s *ApplicationConfigurationHandler, applicationConfiguration *v1alpha1.ApplicationConfiguration, component string, pvc apiv1.PersistentVolumeClaim) error {
 	pvcsClient := s.K8sclient.CoreV1().PersistentVolumeClaims(applicationConfiguration.Namespace)
+
+	tmpPvc, _ := pvcsClient.Get(pvc.Name, v1.GetOptions{})
+	if v1.IsControlledBy(tmpPvc, applicationConfiguration.GetObjectMeta()) {
+		patchData, _ := json.Marshal(pvc)
+		pvcResult, err := pvcsClient.Patch(pvc.Name, types.MergePatchType, patchData)
+		if err != nil {
+			handlerLog.Info("ApplicationConfiguration patch failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "PersistentVolumeClaim", pvc.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, pvc.Name, PvcApiVersion, "PersistentVolumeClaim", pvc.Annotations["instance"], pvc.Annotations["role"], "Patch Failed")
+			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
+			return err
+		} else if pvcResult.ResourceVersion != tmpPvc.ResourceVersion {
+			handlerLog.Info("ApplicationConfiguration patched.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "PersistentVolumeClaim", pvcResult.Name)
+			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Patched, fmt.Sprintf(MessageResourcePatched, apiv1.ResourcePersistentVolumeClaims, pvcResult.Name))
+		}
+	} else {
+		pvcResult, err := pvcsClient.Create(&pvc)
+		if err != nil {
+			handlerLog.Info("ApplicationConfiguration create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "PersistentVolumeClaim", pvc.Name, "Error", err)
+			addResourceStatus(&applicationConfiguration.Status.Resources, pvc.Name, PvcApiVersion, "PersistentVolumeClaim", pvc.Annotations["instance"], pvc.Annotations["role"], "Create Failed")
+			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeWarning, Failed, err.Error())
+			return err
+		} else {
+			handlerLog.Info("ApplicationConfiguration created.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, apiv1.ResourcePersistentVolumeClaims.String(), pvcResult.Name)
+			s.Recorder.Event(applicationConfiguration, apiv1.EventTypeNormal, Created, fmt.Sprintf(MessageResourceCreated, apiv1.ResourcePersistentVolumeClaims, pvcResult.Name))
+		}
+	}
+	return nil
+
 	pvcResult, err := pvcsClient.Create(&pvc)
 	if err != nil {
 		handlerLog.Info("Pvc create failed.", "Namespace", applicationConfiguration.Namespace, "ApplicationConfiguration", applicationConfiguration.Name, "Component", component, "Pvc", pvc.Name, "Error", err)
