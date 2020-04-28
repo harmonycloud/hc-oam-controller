@@ -243,33 +243,31 @@ func convertIngress(owner v1.OwnerReference, annotations map[string]string, inst
 		if tr.Name != "ingress" {
 			continue
 		}
-		values, err := parsePropertiesOfTrait(tr)
-		if err != nil {
-			continue
-		}
-		hostname := values["hostname"].(string)
 
-		path := "/"
-		if p, ok := values["path"]; ok {
-			path = p.(string)
+		ing := new(traits2.Ingress)
+		if err := json.Unmarshal(tr.Properties.Raw, &ing); err != nil {
+			traitsConverterLog.Info(err.Error())
 		}
-		port := int32(values["servicePort"].(float64))
 
+		if ing.Path == "" {
+			ing.Path = "/"
+		}
+
+		if ing.IngressClass == "" {
+			ing.IngressClass = "nginx-ingress-controller"
+		}
+		annotations["kubernetes.io/ingress.class"] = ing.IngressClass
 		httpIngressPath := v1beta1.HTTPIngressPath{
-			Path: path,
+			Path: ing.Path,
 			Backend: v1beta1.IngressBackend{
 				ServiceName: instanceName,
-				ServicePort: intstr.IntOrString{
-					Type:   0,
-					IntVal: port,
-					StrVal: "",
-				},
+				ServicePort: ing.ServicePort,
 			},
 		}
 		httpIngressRuleValue := new(v1beta1.HTTPIngressRuleValue)
 		httpIngressRuleValue.Paths = append(httpIngressRuleValue.Paths, httpIngressPath)
 		ingressRule := v1beta1.IngressRule{
-			Host:             hostname,
+			Host:             ing.Hostname,
 			IngressRuleValue: v1beta1.IngressRuleValue{HTTP: httpIngressRuleValue},
 		}
 		ingressRules = append(ingressRules, ingressRule)
