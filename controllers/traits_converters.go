@@ -240,7 +240,7 @@ func convertIngress(owner v1.OwnerReference, annotations map[string]string, inst
 	var ingressRules []v1beta1.IngressRule
 	var ingress *v1beta1.Ingress
 	for _, tr := range traits {
-		if tr.Name != "ingress" {
+		if tr.Name != "nginx-ingress" && tr.Name != "ingress" {
 			continue
 		}
 
@@ -257,6 +257,9 @@ func convertIngress(owner v1.OwnerReference, annotations map[string]string, inst
 			ing.IngressClass = "nginx-ingress-controller"
 		}
 		annotations["kubernetes.io/ingress.class"] = ing.IngressClass
+
+		strVarToIntVar(&ing.ServicePort)
+
 		httpIngressPath := v1beta1.HTTPIngressPath{
 			Path: ing.Path,
 			Backend: v1beta1.IngressBackend{
