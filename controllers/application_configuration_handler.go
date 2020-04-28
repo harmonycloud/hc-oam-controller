@@ -645,7 +645,7 @@ func updateModuleStatus(s *ApplicationConfigurationHandler, ac *v1alpha1.Applica
 					status = Healthy
 				}
 			case PvcKind:
-				if !strings.HasSuffix(status, "Bound.") {
+				if !strings.HasSuffix(r.Status, "Bound.") {
 					break resourceLoop
 				} else {
 					status = Healthy
