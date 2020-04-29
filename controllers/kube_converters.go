@@ -210,7 +210,7 @@ func convertConfigMap(owner v1.OwnerReference, annotations map[string]string, oa
 	}
 	for _, f := range oamConfigFile {
 		value := f.Value
-		if &f.FromParam != nil {
+		if &f.FromParam != nil && f.FromParam != "" {
 			value = parameterMap[f.FromParam]
 		}
 		configmap.Data[getConfigFileName(f.Path)] = value
