@@ -106,7 +106,7 @@ func main() {
 		oam.WithSpec("configmap"),
 		oam.WithSpec("persistentvolumeclaim"),
 		oam.WithSpec("job"),
-		oam.WithSpec("mysqlcluster"),
+		//oam.WithSpec("mysqlcluster"),
 		//oam.WithSpec("hpa"),
 		oam.WithSpec("hchpa"),
 		oam.WithSpec("ingress"),
