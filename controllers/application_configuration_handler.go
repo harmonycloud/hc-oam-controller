@@ -617,6 +617,7 @@ func updateModuleStatus(s *ApplicationConfigurationHandler, ac *v1alpha1.Applica
 				continue
 			}
 			if r.Status == PatchFailed || r.Status == CreateFailed {
+				status = Unhealthy
 				break
 			}
 			switch r.Kind {
@@ -625,6 +626,7 @@ func updateModuleStatus(s *ApplicationConfigurationHandler, ac *v1alpha1.Applica
 				readyCount := MiddleString(readyStatus, " ", "/")
 				replicaCount := MiddleString(readyStatus, "/", ",")
 				if readyCount == "0" || readyCount != replicaCount {
+					status = Unhealthy
 					break resourceLoop
 				} else {
 					status = Healthy
@@ -632,6 +634,7 @@ func updateModuleStatus(s *ApplicationConfigurationHandler, ac *v1alpha1.Applica
 			case JobKind:
 				failedCount := MiddleString(r.Status, ", Failed: ", ".")
 				if failedCount != "0" || failedCount != "" {
+					status = Unhealthy
 					break resourceLoop
 				} else {
 					status = Healthy
@@ -640,12 +643,14 @@ func updateModuleStatus(s *ApplicationConfigurationHandler, ac *v1alpha1.Applica
 				currentCount := MiddleString(r.Status, "CurrentReplicas: ", ", DesiredReplicas: ")
 				desiredCount := MiddleString(r.Status, ", DesiredReplicas: ", ".")
 				if currentCount != desiredCount {
+					status = Unhealthy
 					break resourceLoop
 				} else {
 					status = Healthy
 				}
 			case PvcKind:
 				if !strings.HasSuffix(r.Status, "Bound.") {
+					status = Unhealthy
 					break resourceLoop
 				} else {
 					status = Healthy
